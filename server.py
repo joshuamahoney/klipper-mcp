@@ -202,24 +202,39 @@ def audit_log(action: str, details: dict = None):
 def register_all_tools():
     """Import and register all tool modules."""
     from tools import register_all_tools as _register
-    
-    # Create a mock MCP object that captures tool registrations
+
+    read_only = getattr(config, "READ_ONLY", False)
+    skipped = []
+
+    # Tools that mutate state declare write=True. In READ_ONLY mode they are
+    # never registered, so they cannot be called — a server-side guarantee
+    # independent of ARMED or ADMIN_PIN.
     class MockMCP:
-        def tool(self):
+        def tool(self, write: bool = False):
             def decorator(func):
                 tool_name = func.__name__
+                if read_only and write:
+                    skipped.append(tool_name)
+                    return func
                 TOOLS[tool_name] = {
                     "function": func,
                     "description": func.__doc__ or "",
-                    "name": tool_name
+                    "name": tool_name,
                 }
                 return func
             return decorator
-    
+
     mock_mcp = MockMCP()
     _register(mock_mcp)
-    
-    print(f"✓ Registered {len(TOOLS)} tools", file=sys.stderr)
+
+    if read_only:
+        print(
+            f"✓ READ_ONLY mode: registered {len(TOOLS)} read tools, "
+            f"blocked {len(skipped)} write tools",
+            file=sys.stderr,
+        )
+    else:
+        print(f"✓ Registered {len(TOOLS)} tools", file=sys.stderr)
 
 
 # ============================================================
@@ -300,6 +315,7 @@ async def handle_server_info(request: web.Request) -> web.Response:
         "printer": config.PRINTER_NAME,
         "moonraker_url": config.MOONRAKER_URL,
         "armed": config.ARMED,
+        "read_only": getattr(config, "READ_ONLY", False),
         "tools_count": len(TOOLS),
         "features": {
             "toolchanger": config.TOOL_COUNT > 1,
