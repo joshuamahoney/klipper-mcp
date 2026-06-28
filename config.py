@@ -23,7 +23,7 @@ MCP_PORT = int(os.getenv("MCP_PORT", "8000"))
 API_KEY = os.getenv("API_KEY", "change-me-to-a-secure-key")
 
 # Armed mode - when False, dangerous commands are blocked
-ARMED = os.getenv("ARMED", "true").lower() == "true"
+ARMED = os.getenv("ARMED", "false").lower() == "true"
 
 # Admin PIN for destructive operations (delete, restore, emergency stop)
 ADMIN_PIN = os.getenv("ADMIN_PIN", "123456")
