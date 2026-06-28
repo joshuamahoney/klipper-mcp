@@ -164,15 +164,49 @@ def parse_docstring_args(docstring: str) -> dict:
     return args
 
 
+def base_type(hint):
+    """Resolve a type hint to its underlying Python type, unwrapping Optional[X]."""
+    if typing.get_origin(hint) is typing.Union:
+        inner = [a for a in typing.get_args(hint) if a is not type(None)]
+        if len(inner) == 1:
+            return inner[0]
+        return None
+    return hint
+
+
 def get_json_type(hint) -> str:
     """Convert a Python type hint to a JSON Schema type string, handling Optional[X]."""
     base_map = {str: "string", int: "integer", float: "number", bool: "boolean"}
-    origin = typing.get_origin(hint)
-    if origin is typing.Union:
-        inner = [a for a in typing.get_args(hint) if a is not type(None)]
-        if len(inner) == 1:
-            return base_map.get(inner[0], "string")
-    return base_map.get(hint, "string")
+    return base_map.get(base_type(hint), "string")
+
+
+def coerce_arguments(func: Callable, raw_args: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce string arguments (e.g. from an HTML query string) to a function's hinted types.
+
+    The JSON and MCP paths already receive correctly typed values; this is only
+    needed for the browser convenience interface, where every query param is a
+    string. Unknown or already-typed values are passed through unchanged.
+    """
+    try:
+        hints = get_type_hints(func)
+    except Exception:
+        hints = {}
+
+    coerced: Dict[str, Any] = {}
+    for key, value in raw_args.items():
+        target = base_type(hints.get(key))
+        if not isinstance(value, str):
+            coerced[key] = value
+        elif target is bool:
+            coerced[key] = value.strip().lower() in ("true", "1", "yes", "on")
+        elif target in (int, float):
+            try:
+                coerced[key] = target(value)
+            except ValueError:
+                coerced[key] = value
+        else:
+            coerced[key] = value
+    return coerced
 
 
 
@@ -641,13 +675,16 @@ async def handle_call_tool_html(request: web.Request) -> web.Response:
         return web.Response(text=html_page(f"Tool: {tool_name}", body), content_type='text/html')
     
     audit_log("tool_call_html", {"tool": tool_name, "arguments": arguments})
-    
+
+    # Query-string args arrive as strings; coerce to the tool's hinted types
+    arguments = coerce_arguments(func, arguments)
+
     try:
         if asyncio.iscoroutinefunction(func):
             result = await func(**arguments)
         else:
             result = func(**arguments)
-        
+
         # Parse JSON if string
         if isinstance(result, str):
             try:

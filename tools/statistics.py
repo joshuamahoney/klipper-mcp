@@ -6,6 +6,7 @@ import json
 from typing import Optional
 import config
 from moonraker import get_client
+from ._util import format_duration
 
 
 def register_statistics_tools(mcp):
@@ -258,18 +259,3 @@ def register_statistics_tools(mcp):
             "total_analyzed": len(jobs),
             "completed_count": len(completed),
         }, indent=2)
-
-
-def format_duration(seconds: float) -> str:
-    """Format seconds into human-readable duration."""
-    if not seconds:
-        return "0m"
-    
-    seconds = int(seconds)
-    hours = seconds // 3600
-    minutes = (seconds % 3600) // 60
-    
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    else:
-        return f"{minutes}m"
