@@ -21,6 +21,15 @@ SERVICE_NAME="klipper-mcp"
 
 echo "Installing as user: $INSTALL_USER"
 
+# Prompt for printer name
+echo ""
+echo "Enter a name for this printer (e.g. elegoo-giga-1, elegoo-giga-2)"
+echo "Note: each printer needs a unique name if connecting multiple to Claude."
+read -p "Printer name [my-printer]: " PRINTER_NAME
+PRINTER_NAME=${PRINTER_NAME:-my-printer}
+PRINTER_NAME=$(echo "$PRINTER_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
+echo "Using printer name: $PRINTER_NAME"
+
 # Create installation directory
 echo "Creating installation directory..."
 mkdir -p "$INSTALL_DIR"
@@ -56,7 +65,7 @@ if [ ! -f "$INSTALL_DIR/config.py" ]; then
     cat > "$INSTALL_DIR/config.py" << 'EOF'
 # Edit this file with your printer's settings
 MOONRAKER_URL = "http://localhost:7125"
-PRINTER_NAME = "Voron"
+PRINTER_NAME = "$PRINTER_NAME"
 MCP_HOST = "0.0.0.0"
 MCP_PORT = 8000
 MCP_TRANSPORT = "http"
@@ -97,5 +106,8 @@ echo "5. View logs:"
 echo "   tail -f /var/log/klipper-mcp.log"
 echo ""
 echo "MCP server will be available at:"
-echo "   http://$(hostname -I | awk '{print $1}'):8000/mcp"
+echo " http://$(hostname -I | awk '{print $1}'):8000/mcp"
+echo ""
+echo "To add this printer to Claude Code, run this on your Windows machine:"
+echo " claude mcp add --transport http $PRINTER_NAME http://$(hostname -I | awk '{print $1}'):8000/mcp --header \"X-API-Key: YOUR_API_KEY\""
 echo ""

@@ -4,7 +4,7 @@ A Model Context Protocol (MCP) server for controlling Klipper 3D printers via Mo
 
 ## Overview
 
-This server exposes **100+ tools** for complete printer management, from basic operations to advanced diagnostics and toolchanger control. Perfect for Voron, RatRig, or any Klipper-based printer.
+This server exposes **100+ tools** for complete printer management, from basic operations to advanced diagnostics and toolchanger control. Compatible with any Klipper-based printer — Elegoo, Voron, RatRig, and more.
 
 ## Features
 
@@ -186,7 +186,7 @@ This server exposes **100+ tools** for complete printer management, from basic o
 
 ```bash
 # 1. SSH into your printer
-ssh biqu@192.168.x.x  # or pi@192.168.x.x for Raspberry Pi
+ssh elegoo@192.168.x.x  # use your printer's username (elegoo, biqu, pi, etc.)
 
 # 2. Clone the repository
 cd ~
@@ -262,7 +262,7 @@ Add to your VS Code `settings.json` (`Ctrl+Shift+P` → "Preferences: Open User 
 {
   "mcp": {
     "servers": {
-      "voron": {
+      "my-printer-1": {
         "type": "http",
         "url": "http://192.168.x.x:8000/mcp",
         "headers": {
@@ -300,15 +300,15 @@ Configure multiple printers in settings.json:
 {
   "mcp": {
     "servers": {
-      "voron-2.4": {
+      "elegoo1": {
         "type": "http",
         "url": "http://192.168.1.100:8000/mcp",
-        "headers": { "X-API-Key": "key-for-voron" }
+        "headers": { "X-API-Key": "key-for-elegoo1" }
       },
-      "voron-0.2": {
+      "elegoo2": {
         "type": "http",
         "url": "http://192.168.1.101:8000/mcp",
-        "headers": { "X-API-Key": "key-for-v0" }
+        "headers": { "X-API-Key": "key-for-elegoo2" }
       }
     }
   }

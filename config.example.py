@@ -14,7 +14,7 @@ import os
 MOONRAKER_URL = os.getenv("MOONRAKER_URL", "http://localhost:7125")
 
 # Display name for your printer
-PRINTER_NAME = "Voron"
+PRINTER_NAME = "my-printer"  # Set during install, or change to match your printer
 
 # =============================================================================
 # MCP SERVER SETTINGS
