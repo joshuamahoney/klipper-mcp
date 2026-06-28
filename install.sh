@@ -14,14 +14,12 @@ PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.v
 echo "Python version: $PYTHON_VERSION"
 
 # Configuration
-INSTALL_DIR="/home/biqu/klipper-mcp"
+INSTALL_USER=$(whoami)
+INSTALL_DIR="/home/$INSTALL_USER/klipper-mcp"
 VENV_DIR="$INSTALL_DIR/venv"
 SERVICE_NAME="klipper-mcp"
 
-# Check if running as biqu user
-if [ "$USER" != "biqu" ]; then
-    echo "Warning: Running as $USER, not biqu"
-fi
+echo "Installing as user: $INSTALL_USER"
 
 # Create installation directory
 echo "Creating installation directory..."
@@ -39,6 +37,7 @@ cp -r ./data/* "$INSTALL_DIR/data/" 2>/dev/null || true
 cp -r ./scenes/* "$INSTALL_DIR/scenes/" 2>/dev/null || true
 cp requirements.txt "$INSTALL_DIR/" 2>/dev/null || true
 cp klipper-mcp.service "$INSTALL_DIR/" 2>/dev/null || true
+sed -i "s|biqu|$INSTALL_USER|g" "$INSTALL_DIR/klipper-mcp.service"
 
 # Create virtual environment
 echo "Creating Python virtual environment..."
@@ -75,7 +74,7 @@ sudo systemctl enable "$SERVICE_NAME"
 
 # Create log file
 sudo touch /var/log/klipper-mcp.log
-sudo chown biqu:biqu /var/log/klipper-mcp.log
+sudo chown $INSTALL_USER:$INSTALL_USER /var/log/klipper-mcp.log
 
 echo ""
 echo "=========================================="
