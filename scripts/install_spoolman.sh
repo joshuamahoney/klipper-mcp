@@ -6,9 +6,9 @@
 # whoever runs it.
 #
 # Spoolman requires Python 3.9+. On older OS images (e.g. Debian Buster, which
-# ships Python 3.7) this script builds an isolated Python via pyenv and uses it
-# ONLY for Spoolman's virtualenv — the system Python is left untouched so
-# Klipper and Moonraker keep running on it.
+# ships Python 3.7) this script fetches a prebuilt, isolated Python via uv and
+# uses it ONLY for Spoolman's virtualenv — the system Python is left untouched
+# so Klipper and Moonraker keep running on it. No compiling from source.
 
 set -eo pipefail
 
@@ -17,8 +17,8 @@ SPOOLMAN_DIR="${HOME}/spoolman"
 SPOOLMAN_VERSION="0.19.3"
 DOWNLOAD_URL="https://github.com/Donkie/Spoolman/releases/download/v${SPOOLMAN_VERSION}/spoolman.zip"
 
-# Python to build via pyenv when the system Python is too old (< 3.9).
-PYTHON_VERSION="3.11.9"
+# Python to fetch via uv when the system Python is too old (< 3.9).
+PYTHON_VERSION="3.11"
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "Please run this script as your normal user, not as root/sudo." >&2
@@ -49,49 +49,41 @@ curl -fSL "${DOWNLOAD_URL}" -o spoolman.zip
 unzip -q spoolman.zip
 rm spoolman.zip
 
-# --- Ensure a Python >= 3.9 is available -----------------------------------
-# Use the system python3 if it is new enough; otherwise build an isolated
-# interpreter with pyenv. We never replace the system Python.
+# --- Set up the Python environment -----------------------------------------
+# Use the system python3 if it is new enough (>= 3.9). Otherwise fetch a
+# prebuilt, isolated CPython via uv (a small download, no compiling) and build
+# the venv from it. The system Python is never replaced.
 echo "Checking Python version..."
 if python3 -c 'import sys; sys.exit(0 if sys.version_info >= (3, 9) else 1)' 2>/dev/null; then
-    PYTHON_BIN="$(command -v python3)"
-    echo "System python3 ($(${PYTHON_BIN} -V 2>&1)) is new enough."
+    echo "System python3 ($(python3 -V 2>&1)) is new enough."
+    python3 -m venv .venv
+    source .venv/bin/activate
+    pip install --upgrade pip
+    pip install -e .
 else
-    echo "System python3 is older than 3.9 — Spoolman needs 3.9+."
-    echo "Building an isolated Python ${PYTHON_VERSION} via pyenv."
-    echo "NOTE: this compiles CPython from source and can take 15-30 minutes on an SBC."
+    echo "System python3 ($(python3 -V 2>&1 || echo 'unknown')) is older than 3.9 — Spoolman needs 3.9+."
+    echo "Fetching a prebuilt Python ${PYTHON_VERSION} via uv (no compiling)..."
 
-    # Build dependencies for compiling CPython
-    sudo apt-get install -y make build-essential libssl-dev zlib1g-dev \
-        libbz2-dev libreadline-dev libsqlite3-dev wget llvm \
-        libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev \
-        libffi-dev liblzma-dev git
-
-    export PYENV_ROOT="${HOME}/.pyenv"
-    if [ ! -d "${PYENV_ROOT}" ]; then
-        echo "Installing pyenv..."
-        curl -fsSL https://pyenv.run | bash
+    # Install uv (a single static binary) if not already present
+    if ! command -v uv >/dev/null 2>&1; then
+        curl -fsSL https://astral.sh/uv/install.sh | sh
     fi
-    export PATH="${PYENV_ROOT}/bin:${PATH}"
-    eval "$(pyenv init -)"
+    # uv installs to ~/.local/bin (newer installers) or ~/.cargo/bin (older)
+    export PATH="${HOME}/.local/bin:${HOME}/.cargo/bin:${PATH}"
+    hash -r 2>/dev/null || true
 
-    if ! pyenv versions --bare | grep -qx "${PYTHON_VERSION}"; then
-        echo "Compiling Python ${PYTHON_VERSION}..."
-        pyenv install "${PYTHON_VERSION}"
-    else
-        echo "Python ${PYTHON_VERSION} already built by pyenv."
+    if ! command -v uv >/dev/null 2>&1; then
+        echo "uv installation failed or is not on PATH." >&2
+        echo "Open a new shell and re-run, or install uv manually: https://docs.astral.sh/uv/" >&2
+        exit 1
     fi
-    PYTHON_BIN="${PYENV_ROOT}/versions/${PYTHON_VERSION}/bin/python"
+
+    # Download a standalone CPython and build the venv from it
+    uv python install "${PYTHON_VERSION}"
+    uv venv --python "${PYTHON_VERSION}" .venv
+    source .venv/bin/activate
+    uv pip install -e .
 fi
-
-echo "Using Python: ${PYTHON_BIN} ($(${PYTHON_BIN} -V 2>&1))"
-
-# Create virtual environment and install dependencies
-echo "Setting up Python environment..."
-"${PYTHON_BIN}" -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -e .
 
 # Create .env file
 echo "Creating configuration..."
@@ -104,7 +96,7 @@ SPOOLMAN_LOGGING_LEVEL=info
 EOF
 
 # Create systemd service. The service runs uvicorn from the venv, so it uses
-# whichever Python the venv was built with (system or pyenv-provided).
+# whichever Python the venv was built with (system or uv-provided).
 echo "Creating systemd service..."
 sudo tee /etc/systemd/system/spoolman.service > /dev/null << EOF
 [Unit]
