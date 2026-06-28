@@ -1,7 +1,11 @@
 #!/bin/bash
-# Klipper MCP Server Installation Script for CB1
-# Run this script on your CB1 to install the MCP server
-# Compatible with Python 3.9+
+# Klipper MCP Server Installation Script
+# Run this from inside the cloned repository:  bash install.sh
+# Compatible with Python 3.7+ (runs on the system Python of older SBC images).
+#
+# The service runs FROM the cloned repo directory, so `git pull` updates the
+# running server. Paths and the systemd user are derived from where this script
+# lives and who runs it — nothing is copied to a second location.
 
 set -e
 
@@ -9,17 +13,18 @@ echo "=========================================="
 echo "Klipper MCP Server Installer"
 echo "=========================================="
 
-# Check Python version
-PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-echo "Python version: $PYTHON_VERSION"
-
-# Configuration
-INSTALL_USER=$(whoami)
-INSTALL_DIR="/home/$INSTALL_USER/klipper-mcp"
+# Resolve the repo directory (where this script lives) and the running user.
+INSTALL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_USER="$(whoami)"
+INSTALL_GROUP="$(id -gn)"
 VENV_DIR="$INSTALL_DIR/venv"
 SERVICE_NAME="klipper-mcp"
 
-echo "Installing as user: $INSTALL_USER"
+# Check Python version
+PYTHON_VERSION=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+echo "Python version:  $PYTHON_VERSION"
+echo "Install dir:     $INSTALL_DIR"
+echo "Service user:    $INSTALL_USER ($INSTALL_GROUP)"
 
 # Prompt for printer name
 echo ""
@@ -30,106 +35,108 @@ PRINTER_NAME=${PRINTER_NAME:-my-printer}
 PRINTER_NAME=$(echo "$PRINTER_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 echo "Using printer name: $PRINTER_NAME"
 
-# Create installation directory
-echo "Creating installation directory..."
-mkdir -p "$INSTALL_DIR"
-mkdir -p "$INSTALL_DIR/data"
-mkdir -p "$INSTALL_DIR/backups"
-mkdir -p "$INSTALL_DIR/scenes"
-mkdir -p "$INSTALL_DIR/tools"
+# Runtime directories (gitignored, created in place)
+echo "Creating runtime directories..."
+mkdir -p "$INSTALL_DIR/data" "$INSTALL_DIR/backups"
 
-# Copy files (assumes files are in current directory)
-echo "Copying files..."
-cp -r ./*.py "$INSTALL_DIR/" 2>/dev/null || true
-cp -r ./tools/*.py "$INSTALL_DIR/tools/" 2>/dev/null || true
-cp -r ./data/* "$INSTALL_DIR/data/" 2>/dev/null || true
-cp -r ./scenes/* "$INSTALL_DIR/scenes/" 2>/dev/null || true
-cp requirements.txt "$INSTALL_DIR/" 2>/dev/null || true
-cp klipper-mcp.service "$INSTALL_DIR/" 2>/dev/null || true
-sed -i "s|biqu|$INSTALL_USER|g" "$INSTALL_DIR/klipper-mcp.service"
+# Create config from the template on first install; never clobber an existing one
+if [ ! -f "$INSTALL_DIR/config.py" ]; then
+    echo "Creating config.py from config.example.py..."
+    cp "$INSTALL_DIR/config.example.py" "$INSTALL_DIR/config.py"
+    # Seed the printer name; leave the rest for the user to edit
+    sed -i "s/^PRINTER_NAME = .*/PRINTER_NAME = \"$PRINTER_NAME\"/" "$INSTALL_DIR/config.py"
+else
+    echo "Keeping existing config.py (not overwritten)."
+fi
 
-# Create virtual environment
-echo "Creating Python virtual environment..."
+# Create / refresh the virtual environment
+echo "Setting up Python virtual environment..."
 python3 -m venv "$VENV_DIR"
-
-# Activate venv and install dependencies
-echo "Installing dependencies..."
 source "$VENV_DIR/bin/activate"
 pip install --upgrade pip
 pip install -r "$INSTALL_DIR/requirements.txt"
 
-# Create config from template if needed
-if [ ! -f "$INSTALL_DIR/config.py" ]; then
-    echo "Creating default config.py..."
-    # The config.py should already be copied, but create if missing
-    cat > "$INSTALL_DIR/config.py" << 'EOF'
-# Edit this file with your printer's settings
-MOONRAKER_URL = "http://localhost:7125"
-PRINTER_NAME = "$PRINTER_NAME"
-MCP_HOST = "0.0.0.0"
-MCP_PORT = 8000
-MCP_TRANSPORT = "http"
-API_KEY = "your-secret-key-here"
-ARMED = False
-ADMIN_PIN = "0000"
-EOF
-fi
-
-# Install systemd service
+# Generate the systemd unit pointing at THIS directory and user.
 echo "Installing systemd service..."
-sudo cp "$INSTALL_DIR/klipper-mcp.service" /etc/systemd/system/
+sudo tee /etc/systemd/system/${SERVICE_NAME}.service > /dev/null << EOF
+[Unit]
+Description=Klipper MCP Server
+After=network.target moonraker.service
+Wants=moonraker.service
+
+[Service]
+Type=simple
+User=${INSTALL_USER}
+Group=${INSTALL_GROUP}
+WorkingDirectory=${INSTALL_DIR}
+Environment="PATH=${VENV_DIR}/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=${VENV_DIR}/bin/python server.py
+Restart=always
+RestartSec=10
+
+# Logging
+StandardOutput=append:/var/log/klipper-mcp.log
+StandardError=append:/var/log/klipper-mcp.log
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Log file
+sudo touch /var/log/klipper-mcp.log
+sudo chown "$INSTALL_USER:$INSTALL_GROUP" /var/log/klipper-mcp.log
+
+# Enable and (re)start
 sudo systemctl daemon-reload
 sudo systemctl enable "$SERVICE_NAME"
-sudo systemctl start "$SERVICE_NAME"
+sudo systemctl restart "$SERVICE_NAME"
 
-# Create log file
-sudo touch /var/log/klipper-mcp.log
-sudo chown $INSTALL_USER:$INSTALL_USER /var/log/klipper-mcp.log
+IP=$(hostname -I | awk '{print $1}')
 
 echo ""
 echo "=========================================="
 echo "Installation Complete!"
 echo "=========================================="
 echo ""
+echo "Service runs from: $INSTALL_DIR  (git pull here updates it)"
+echo ""
 echo "Next steps:"
 echo "1. Edit the configuration file:"
 echo "   nano $INSTALL_DIR/config.py"
+echo "   - set a strong API_KEY"
+echo "   - set ARMED=True when ready to enable dangerous commands"
+echo "   then: sudo systemctl restart $SERVICE_NAME"
 echo ""
-echo "2. Set ARMED=True when ready to enable dangerous commands"
-echo ""
-echo "3. Check service status:"
+echo "2. Check service status:"
 echo "   sudo systemctl status $SERVICE_NAME"
 echo ""
-echo "4. If it isn't already running, start the service:"
-echo "   sudo systemctl start $SERVICE_NAME"
-echo ""
-echo "5. View logs:"
+echo "3. View logs:"
 echo "   tail -f /var/log/klipper-mcp.log"
 echo ""
 echo "MCP server will be available at:"
-echo " http://$(hostname -I | awk '{print $1}'):8000/mcp"
+echo "   http://$IP:8000/mcp"
 echo ""
 echo "To connect this printer to your MCP client:"
 echo ""
 echo "Claude Code:"
-echo "  claude mcp add --transport http $PRINTER_NAME http://$(hostname -I | awk '{print $1}'):8000/mcp --header \"X-API-Key: YOUR_API_KEY\""
+echo "  claude mcp add --transport http $PRINTER_NAME http://$IP:8000/mcp --header \"X-API-Key: YOUR_API_KEY\""
 echo ""
 echo "OpenAI Codex (~/.codex/config.toml):"
 echo "  [mcp_servers.$PRINTER_NAME]"
-echo "  url = \"http://$(hostname -I | awk '{print $1}'):8000/mcp\""
+echo "  url = \"http://$IP:8000/mcp\""
 echo "  http_headers = { \"X-API-Key\" = \"YOUR_API_KEY\" }"
 echo ""
 echo "OpenCode (opencode.jsonc):"
 echo "  \"$PRINTER_NAME\": {"
 echo "    \"type\": \"remote\","
-echo "    \"url\": \"http://$(hostname -I | awk '{print $1}'):8000/mcp\","
+echo "    \"url\": \"http://$IP:8000/mcp\","
 echo "    \"headers\": { \"X-API-Key\": \"YOUR_API_KEY\" }"
 echo "  }"
 echo ""
 echo "VS Code (settings.json or .vscode/mcp.json):"
 echo "  \"$PRINTER_NAME\": {"
 echo "    \"type\": \"http\","
-echo "    \"url\": \"http://$(hostname -I | awk '{print $1}'):8000/mcp\","
+echo "    \"url\": \"http://$IP:8000/mcp\","
 echo "    \"headers\": { \"X-API-Key\": \"YOUR_API_KEY\" }"
 echo "  }"
 echo ""
