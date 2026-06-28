@@ -1,17 +1,31 @@
 #!/bin/bash
-# Spoolman Installation Script for CB1/Raspberry Pi
+# Spoolman Installation Script for Klipper SBCs (CB1 / Raspberry Pi / Orange Pi, etc.)
+#
+# Run this as your normal printer user (NOT with sudo) — it calls sudo itself
+# where root is required. Paths and the systemd service user are derived from
+# whoever runs it.
 
-set -e
+set -eo pipefail
 
-SPOOLMAN_DIR="/home/biqu/spoolman"
+SPOOLMAN_USER="$(whoami)"
+SPOOLMAN_DIR="${HOME}/spoolman"
 SPOOLMAN_VERSION="0.19.3"
+DOWNLOAD_URL="https://github.com/Donkie/Spoolman/releases/download/v${SPOOLMAN_VERSION}/spoolman.zip"
+
+if [ "$(id -u)" -eq 0 ]; then
+    echo "Please run this script as your normal user, not as root/sudo." >&2
+    echo "It will prompt for sudo only when needed." >&2
+    exit 1
+fi
 
 echo "=== Installing Spoolman v${SPOOLMAN_VERSION} ==="
+echo "User:      ${SPOOLMAN_USER}"
+echo "Directory: ${SPOOLMAN_DIR}"
 
-# Install dependencies
+# Install dependencies (unzip is required to extract the release archive)
 echo "Installing dependencies..."
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-venv
+sudo apt-get install -y python3 python3-pip python3-venv unzip
 
 # Create directory
 echo "Creating Spoolman directory..."
@@ -19,10 +33,13 @@ rm -rf "${SPOOLMAN_DIR}"
 mkdir -p "${SPOOLMAN_DIR}"
 cd "${SPOOLMAN_DIR}"
 
-# Download latest release
+# Download latest release. The Spoolman release ships a .zip (not .tar.gz).
+# -f makes curl exit non-zero on HTTP errors (e.g. 404) instead of silently
+# writing the error page to the output file.
 echo "Downloading Spoolman..."
-DOWNLOAD_URL="https://github.com/Donkie/Spoolman/releases/download/v${SPOOLMAN_VERSION}/spoolman.tar.gz"
-curl -sL "${DOWNLOAD_URL}" | tar xz
+curl -fSL "${DOWNLOAD_URL}" -o spoolman.zip
+unzip -q spoolman.zip
+rm spoolman.zip
 
 # Create virtual environment and install dependencies
 echo "Setting up Python environment..."
@@ -50,7 +67,7 @@ After=network.target
 
 [Service]
 Type=simple
-User=biqu
+User=${SPOOLMAN_USER}
 WorkingDirectory=${SPOOLMAN_DIR}
 ExecStart=${SPOOLMAN_DIR}/.venv/bin/uvicorn spoolman.main:app --host 0.0.0.0 --port 7912
 Restart=always
