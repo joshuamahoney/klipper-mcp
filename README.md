@@ -1,16 +1,19 @@
 # Klipper MCP Server
 
-A Model Context Protocol (MCP) server for controlling Klipper 3D printers via Moonraker API. Enables AI assistants like Claude to control your 3D printer through VS Code or any MCP-compatible client.
+A Model Context Protocol (MCP) server for controlling Klipper 3D printers via
+Moonraker API. Enables AI coding assistants to interact with your printer
+through any MCP-compatible client.
 
-## Overview
+Compatible with any Klipper-based printer — Elegoo, Voron, RatRig, and more.
 
-This server exposes **100+ tools** for complete printer management, from basic operations to advanced diagnostics and toolchanger control. Compatible with any Klipper-based printer — Elegoo, Voron, RatRig, and more.
+---
 
 ## Features
 
 ### 🖨️ Core Printer Control
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_printer_status` | Full status including temps, position, state |
 | `run_gcode` | Execute any G-code command |
 | `start_print` | Start a print job |
@@ -23,8 +26,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `set_heater_temperature` | Set hotend/bed temps |
 
 ### 🔧 StealthChanger / Toolchanger Support
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_active_tool` | Current tool status |
 | `select_tool` | Pick up tool (T0-T5) |
 | `drop_tool` | Return tool to dock |
@@ -35,8 +39,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `disable_crash_detection` | Disable during testing |
 
 ### ⚡ TMC Stepper Driver Control
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_tmc_status` | Driver status, currents, temps |
 | `set_tmc_current` | Adjust run/hold current |
 | `dump_tmc_registers` | Register diagnostics |
@@ -45,8 +50,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `list_tmc_steppers` | All TMC-equipped steppers |
 
 ### 💡 LED Effects (klipper-led_effect)
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `list_led_effects` | Available effects |
 | `set_led_effect` | Activate an effect |
 | `stop_led_effect` / `stop_all_effects` | Stop effects |
@@ -55,8 +61,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `activate_led_scene` | Apply scene preset |
 
 ### 📁 File Operations
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `list_gcode_files` | Browse G-code files |
 | `get_file_metadata` | Slicer settings, thumbnails |
 | `read_gcode_file` | Read file contents |
@@ -67,8 +74,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `read_config_file` | Read printer.cfg etc. |
 
 ### 📷 Camera & Timelapse
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_camera_snapshot` | Capture current frame |
 | `get_camera_stream_url` | MJPEG stream URL |
 | `get_timelapse_settings` | Current timelapse config |
@@ -78,8 +86,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `configure_timelapse` | Adjust settings |
 
 ### 📊 Print Statistics
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_print_history` | Past prints with filtering |
 | `get_print_stats` | Cumulative statistics |
 | `get_filament_usage_by_material` | Usage breakdown |
@@ -88,8 +97,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `export_printer_data` | Export all data to JSON |
 
 ### 🔍 Diagnostics & Troubleshooting
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `parse_klippy_log` | Analyze log for issues |
 | `get_recent_errors` | Recent errors with context |
 | `get_log_summary` | Log overview |
@@ -102,8 +112,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `get_system_performance` | CPU, memory, disk stats |
 
 ### 🌡️ Temperature & Bed Mesh
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_temperatures` | All heater temperatures |
 | `get_temperature_history` | Historical temp data |
 | `analyze_temperature_data` | Anomaly detection |
@@ -115,8 +126,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `clear_bed_mesh` | Remove active mesh |
 
 ### 🧵 Spoolman Integration
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `list_spools` | All tracked spools |
 | `get_active_spool` | Currently loaded spool |
 | `set_active_spool` | Set spool for tool |
@@ -127,8 +139,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `list_filaments` | Filament database |
 
 ### 🔔 Notifications
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `send_notification` | Multi-channel notify |
 | `send_discord_notification` | Discord webhook |
 | `send_slack_notification` | Slack webhook |
@@ -138,8 +151,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `get_notification_settings` | Current config |
 
 ### 💾 Backup & Maintenance
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `backup_config` | Backup all configs |
 | `list_backups` | Available backups |
 | `restore_config` | Restore from backup |
@@ -150,8 +164,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `export_printer_data` | Full data export |
 
 ### 📝 G-code Analysis
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `analyze_gcode_file` | Full file analysis |
 | `validate_gcode` | Check for issues |
 | `extract_gcode_comments` | Slicer comments |
@@ -160,8 +175,9 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `compare_gcode_files` | Diff two files |
 
 ### 🖥️ System Management
+
 | Tool | Description |
-|------|-------------|
+|---|---|
 | `get_system_info` | CPU, memory, disk, temp |
 | `get_network_info` | IP addresses, WiFi |
 | `check_updates` | Available updates |
@@ -174,55 +190,61 @@ This server exposes **100+ tools** for complete printer management, from basic o
 | `get_moonraker_config` | Moonraker info |
 | `get_printer_objects` | Available Klipper objects |
 
+---
+
 ## Installation
 
 ### Prerequisites
-- Klipper + Moonraker running on your printer
-- Python 3.9+ on your CB1/Raspberry Pi
-- Network access between VS Code and printer
-- VS Code with GitHub Copilot (for Claude integration)
 
-### Quick Start (5 minutes)
+- Klipper + Moonraker running on your printer
+- Python 3.9+ on your SBC (Raspberry Pi, CB1, Orange Pi, etc.)
+- Network access between your machine and the printer
+
+### Quick Start
 
 ```bash
 # 1. SSH into your printer
-ssh elegoo@192.168.x.x  # use your printer's username (elegoo, biqu, pi, etc.)
+ssh your-user@192.168.x.x
 
 # 2. Clone the repository
 cd ~
-git clone https://github.com/Charleslotto/klipper-mcp.git
+git clone https://github.com/joshuamahoney/klipper-mcp.git
 cd klipper-mcp
 
-# 3. Create config from template
+# 3. Create and edit config
 cp config.example.py config.py
+nano config.py
 
-# 4. Generate a secure API key and edit config
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
-nano config.py  # Paste the API key and adjust settings
-
-# 5. Run the installer
-chmod +x install.sh
-./install.sh
-
-# 6. Start the service
-sudo systemctl start klipper-mcp
-sudo systemctl enable klipper-mcp  # Auto-start on boot
+# 4. Run the installer
+# The installer detects your user automatically and prompts for a printer
+# name. Use a unique name for each printer if connecting multiple printers
+# to the same MCP client.
+bash install.sh
 ```
+
+The installer will:
+
+- Set up a Python virtual environment and install dependencies
+- Prompt you for a printer name
+- Install and start the systemd service automatically
+- Print connection commands for your MCP client
 
 ### Verify Installation
 
 ```bash
-# Check service is running
+# Check the service is running
 sudo systemctl status klipper-mcp
 
-# Test the API (replace with your API key)
+# Test the API
 curl -H "X-API-Key: your-api-key" http://localhost:8000/health
 
 # View logs
 journalctl -u klipper-mcp -f
 ```
 
-### Configuration
+---
+
+## Configuration
 
 Copy `config.example.py` to `config.py` and customize:
 
@@ -231,118 +253,136 @@ nano ~/klipper-mcp/config.py
 ```
 
 **Required settings:**
+
 | Setting | Description | Example |
-|---------|-------------|---------|
+|---|---|---|
 | `API_KEY` | Secure authentication key | `python3 -c "import secrets; print(secrets.token_urlsafe(32))"` |
 | `MOONRAKER_URL` | Your Moonraker address | `http://localhost:7125` |
-| `PRINTER_NAME` | Display name | `Voron 2.4` |
+| `PRINTER_NAME` | Display name | `elegoo-giga-1` |
 
 **Security settings:**
+
 | Setting | Description | Default |
-|---------|-------------|---------|
+|---|---|---|
 | `ARMED` | Enable dangerous operations | `false` |
 | `ADMIN_PIN` | PIN for destructive ops | `123456` |
 
 **Optional integrations:**
+
 | Setting | Description |
-|---------|-------------|
+|---|---|
 | `SPOOLMAN_ENABLED` | Enable Spoolman filament tracking |
 | `TOOL_COUNT` | Number of toolchanger tools |
 | `DISCORD_WEBHOOK_URL` | Discord notifications |
 
 ---
 
-## Setting Up VS Code MCP Client
+## Connecting to Your MCP Client
 
-### Method 1: User Settings (Recommended)
+The installer prints these commands automatically at the end of setup.
+Replace `YOUR_API_KEY` with the value set in `config.py`, and
+`192.168.x.x` with your printer's IP address.
 
-Add to your VS Code `settings.json` (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)"):
+> **Note:** If connecting multiple printers to the same MCP client, each
+> printer must be given a unique name.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http my-printer http://192.168.x.x:8000/mcp \
+  --header "X-API-Key: YOUR_API_KEY"
+```
+
+### OpenAI Codex
+
+Add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.my-printer]
+url = "http://192.168.x.x:8000/mcp"
+http_headers = { "X-API-Key" = "YOUR_API_KEY" }
+```
+
+### OpenCode
+
+Add to `opencode.jsonc`:
+
+```json
+{
+  "mcp": {
+    "my-printer": {
+      "type": "remote",
+      "url": "http://192.168.x.x:8000/mcp",
+      "headers": { "X-API-Key": "YOUR_API_KEY" }
+    }
+  }
+}
+```
+
+### VS Code
+
+Add to `settings.json` (`Ctrl+Shift+P` → "Preferences: Open User Settings (JSON)"):
 
 ```json
 {
   "mcp": {
     "servers": {
-      "my-printer-1": {
+      "my-printer": {
         "type": "http",
         "url": "http://192.168.x.x:8000/mcp",
-        "headers": {
-          "X-API-Key": "your-api-key-here"
-        }
+        "headers": { "X-API-Key": "YOUR_API_KEY" }
       }
     }
   }
 }
 ```
 
-### Method 2: Workspace Config
+Or create `.vscode/mcp.json` in your project for workspace-scoped config.
 
-Create `.vscode/mcp.json` in your project:
+### Multiple Printers
 
-```json
-{
-  "mcpServers": {
-    "voron": {
-      "type": "http", 
-      "url": "http://192.168.x.x:8000/mcp",
-      "headers": {
-        "X-API-Key": "your-api-key-here"
-      }
-    }
-  }
-}
+Each printer needs a unique name. Example with two printers:
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http elegoo-giga-1 http://192.168.1.100:8000/mcp \
+  --header "X-API-Key: KEY_FOR_PRINTER_1"
+
+claude mcp add --transport http elegoo-giga-2 http://192.168.1.101:8000/mcp \
+  --header "X-API-Key: KEY_FOR_PRINTER_2"
 ```
 
-### Method 3: Multiple Printers
-
-Configure multiple printers in settings.json:
-
-```json
-{
-  "mcp": {
-    "servers": {
-      "elegoo1": {
-        "type": "http",
-        "url": "http://192.168.1.100:8000/mcp",
-        "headers": { "X-API-Key": "key-for-elegoo1" }
-      },
-      "elegoo2": {
-        "type": "http",
-        "url": "http://192.168.1.101:8000/mcp",
-        "headers": { "X-API-Key": "key-for-elegoo2" }
-      }
-    }
-  }
-}
-```
-
-### Verify Connection
-
-1. Open VS Code with Copilot
-2. Open the Copilot Chat panel
-3. Type: `@voron what's your status?`
-4. Claude should respond with your printer's status
-
-**Troubleshooting:**
-- Ensure the CB1/Pi IP address is reachable: `ping 192.168.x.x`
-- Check firewall allows port 8000: `sudo ufw allow 8000`
-- Verify API key matches exactly in VS Code and config.py
-- Check service is running: `sudo systemctl status klipper-mcp`
+**OpenCode / VS Code:** add a separate named entry per printer under `mcp`.
 
 ---
 
 ## Security
 
 ### ARMED Flag
-Dangerous operations (G-code execution, temperature changes) require `ARMED=True` in config.
+
+Dangerous operations (G-code execution, temperature changes) require
+`ARMED=True` in `config.py`.
 
 ### Admin PIN
-Destructive operations (file deletion, config restore, system reboot) require the admin PIN.
+
+Destructive operations (file deletion, config restore, system reboot)
+require the admin PIN.
 
 ### API Key
+
 All requests must include a valid `X-API-Key` header matching your config.
+Generate a key with:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
 ### Audit Log
-All operations are logged to `data/audit.log` for security review.
+
+All operations are logged to `data/audit.log`.
+
+---
 
 ## Configuration Reference
 
@@ -351,12 +391,12 @@ All operations are logged to `data/audit.log` for security review.
 
 # Moonraker connection
 MOONRAKER_URL = "http://localhost:7125"
-PRINTER_NAME = "Voron"
+PRINTER_NAME = "my-printer"
 
 # MCP Server
 MCP_HOST = "0.0.0.0"
 MCP_PORT = 8000
-MCP_TRANSPORT = "http"  # or "stdio" for local use
+MCP_TRANSPORT = "http"
 
 # Security
 API_KEY = "your-secret-key"        # Required for all API calls
@@ -394,218 +434,42 @@ MAINTENANCE_INTERVALS = {
 TOOL_COUNT = 4  # Number of tools (T0-T3)
 ```
 
-## Usage Examples
-
-### Basic Commands
-```
-"What's my printer's current status?"
-"Set the bed to 60°C and hotend to 210°C"
-"Start printing benchy.gcode"
-"Pick up T1" / "Drop the current tool"
-```
-
 ---
 
-### 🧵 Bulk Import Filament Database into Spoolman
+## Troubleshooting
 
-**User:** "I want to bulk import filaments into Spoolman from the community database"
+### Service won't start
 
-**Claude:** I'll fetch the external filament database and import everything for you...
+```bash
+# Check logs
+journalctl -u klipper-mcp -n 50
 
-**Result:**
-- Fetched 6,957 filaments from SpoolmanDB community database
-- Created 53 vendors (Polymaker, eSun, Bambu Lab, Prusament, Hatchbox, etc.)
-- Imported 5,223 filaments with full specifications:
-  - Material types: PLA (2,466), PETG (943), ASA (526), ABS (467), TPU (312)...
-  - Includes density, diameters, temp ranges, colors
-- All searchable in Spoolman UI
+# Verify config is valid
+python3 -c "import config; print(config.MOONRAKER_URL)"
+
+# Check Moonraker is running
+systemctl status moonraker
+```
+
+### Can't connect from your machine
+
+- Verify the printer IP is reachable: `ping 192.168.x.x`
+- Check port 8000 is open: `sudo ufw allow 8000`
+- Verify the API key matches exactly in your client config and `config.py`
+- Test directly: `curl -H "X-API-Key: your-key" http://192.168.x.x:8000/health`
+
+### Operations failing
+
+- Check `ARMED=True` is set in `config.py` for dangerous operations
+- Verify Klipper is running: `systemctl status klipper`
+- Check klippy log: `tail -f ~/printer_data/logs/klippy.log`
 
 ---
-
-### 🔍 System Health Check After Heavy Operation
-
-**User:** "How is the Voron's load now that Spoolman has all that data?"
-
-**Claude:** Let me check the system status...
-
-```
-┌──────────────────────────────────────┐
-│ System Load After Spoolman Import    │
-├─────────────┬────────────┬───────────┤
-│ CPU Load    │ 1.32       │ 🟢 Normal │
-│ Memory      │ 60% used   │ 🟢 OK     │
-│ Disk        │ 38% used   │ 🟢 OK     │
-│ CPU Temp    │ 45.7°C     │ 🟢 Cool   │
-│ CAN Bus     │ All Active │ 🟢 OK     │
-└─────────────┴────────────┴───────────┘
-```
-
-**Analysis:** Spoolman runs on a separate machine, so the 5,223 filaments don't impact Klipper. Load settled from 1.71 → 1.32 after initial indexing.
-
----
-
-### 🛠️ Configuration Audit & Diagnostics
-
-**User:** "Can you audit my Voron's configuration?"
-
-**Claude:** I'll analyze your printer configuration and logs...
-
-**Results:**
-```
-Configuration Issues Found:
-⚠️  Klipper git state: dirty/invalid - uncommitted changes
-⚠️  TMC Autotune: Installed but not configured for all steppers
-⚠️  Hold current: Using default 50% - consider optimizing
-
-Recommendations:
-1. Run 'git stash' in Klipper directory to clean state
-2. Add [autotune_tmc] sections for stepper_x, stepper_y, stepper_z
-3. Set hold_current to 40% for lower idle power consumption
-
-No Critical Errors Found ✅
-CAN Bus: All 4 MCUs communicating properly
-TMC Drivers: No errors, all steppers responding
-```
-
----
-
-### 🌡️ Temperature Anomaly Detection
-
-**User:** "Analyze my temperature data for any issues"
-
-**Claude:** Analyzing temperature history...
-
-```
-Temperature Analysis (Last 24 Hours)
-────────────────────────────────────
-Hotend (extruder):
-  ✅ Stable PID tuning - variance: ±0.3°C
-  ✅ No thermal runaway events
-  
-Bed (heater_bed):
-  ⚠️ Detected 2 oscillations during warmup
-  💡 Consider re-running PID_CALIBRATE BED
-
-Chamber:
-  ✅ Consistent 45°C during ABS prints
-  
-MCU Temperatures:
-  ✅ All MCUs under 50°C
-```
-
----
-
-### 🔧 TMC Driver Optimization
-
-**User:** "What are my TMC driver settings and can they be improved?"
-
-**Claude:** Let me check your TMC configuration...
-
-```
-TMC Driver Status
-─────────────────────────────────────────────────
-Stepper      │ Driver   │ Run    │ Hold   │ Temp
-─────────────┼──────────┼────────┼────────┼──────
-stepper_x    │ TMC2209  │ 0.800A │ 0.400A │ 42°C
-stepper_y    │ TMC2209  │ 0.800A │ 0.400A │ 44°C
-stepper_z    │ TMC2209  │ 0.800A │ 0.600A │ 38°C
-stepper_z1   │ TMC2209  │ 0.800A │ 0.600A │ 39°C
-stepper_z2   │ TMC2209  │ 0.800A │ 0.600A │ 37°C
-stepper_z3   │ TMC2209  │ 0.800A │ 0.600A │ 38°C
-extruder     │ TMC2209  │ 0.650A │ 0.325A │ 41°C
-
-TMC Autotune: ⚠️ Installed but needs motor configuration
-Recommendation: Add motor specs to enable automatic tuning
-```
-
----
-
-### 📊 Print Statistics & Filament Usage
-
-**User:** "Show me my print statistics and filament usage"
-
-**Claude:** Here's your printing summary...
-
-```
-Lifetime Statistics
-───────────────────
-Total Prints:     847
-Success Rate:     94.2%
-Total Print Time: 1,247 hours
-Total Filament:   12.4 kg
-
-Filament by Material
-────────────────────
-PLA   │ ████████████████████ │ 6.2 kg (50%)
-PETG  │ ████████████         │ 3.1 kg (25%)
-ABS   │ ████████             │ 2.0 kg (16%)
-ASA   │ ████                 │ 1.1 kg (9%)
-
-Recent Prints (Last 7 Days)
-───────────────────────────
-✅ voron_panel_x4.gcode    │ 4h 23m │ PETG
-✅ cable_chain.gcode       │ 2h 15m │ ABS
-✅ benchy.gcode            │ 0h 42m │ PLA
-❌ large_vase.gcode        │ Failed │ Layer shift @ 45%
-```
-
----
-
-### 🔄 Multi-Tool Print Setup
-
-**User:** "I want to print a dual-color model, help me set up the tools"
-
-**Claude:** Let me configure your toolchanger...
-
-```
-Current Tool Status
-───────────────────
-T0 (extruder):  🔵 Active - Docked
-T1 (extruder1): ⚪ Ready - Docked  
-T2 (extruder2): ⚪ Ready - Docked
-
-Setting up for dual-color print:
-1. ✅ Set T0 active spool: Polymaker PLA Pro - Blue (ID: 142)
-2. ✅ Set T1 active spool: Polymaker PLA Pro - White (ID: 156)
-3. ✅ Verified tool offsets are calibrated
-4. ✅ Both hotends at target temp (210°C)
-
-Ready to print! The slicer should handle tool changes automatically.
-```
-
----
-
-### 💾 Automated Backup Before Update
-
-**User:** "I want to update Klipper but backup my config first"
-
-**Claude:** I'll create a backup and then check for updates...
-
-```
-Backup Created
-──────────────
-📁 backup_2026-01-26_143022.tar.gz
-   - printer.cfg
-   - moonraker.conf
-   - mainsail.cfg
-   - 12 include files
-   Total: 847 KB
-
-Available Updates
-─────────────────
-Component    │ Current     │ Available   │ Status
-─────────────┼─────────────┼─────────────┼────────
-Klipper      │ v0.12.0-145 │ v0.12.0-152 │ 7 commits behind
-Moonraker    │ v0.8.0-401  │ v0.8.0-401  │ ✅ Up to date
-Mainsail     │ v2.9.1      │ v2.10.0     │ Update available
-
-Would you like me to proceed with updating Klipper?
-```
 
 ## Optional Integrations
 
 ### Spoolman
-Enable filament tracking by setting up [Spoolman](https://github.com/Donkie/Spoolman):
+
 ```bash
 cd ~/klipper-mcp/scripts
 chmod +x install_spoolman.sh
@@ -613,97 +477,79 @@ chmod +x install_spoolman.sh
 ```
 
 Then update `config.py`:
+
 ```python
 SPOOLMAN_ENABLED = True
 SPOOLMAN_URL = "http://localhost:7912"
 ```
 
 ### TMC Autotune
-For automatic TMC tuning, install [klipper_tmc_autotune](https://github.com/andrewmcgr/klipper_tmc_autotune).
+
+Install [klipper_tmc_autotune](https://github.com/andrewmcgr/klipper_tmc_autotune).
 
 ### LED Effects
-For animated LEDs, install [klipper-led_effect](https://github.com/julianschill/klipper-led_effect).
 
-## Troubleshooting
+Install [klipper-led_effect](https://github.com/julianschill/klipper-led_effect).
 
-### Server won't start
-```bash
-# Check Moonraker is running
-systemctl status moonraker
-
-# Check logs
-journalctl -u klipper-mcp -f
-
-# Verify config
-python3 -c "import config; print(config.MOONRAKER_URL)"
-```
-
-### Can't connect from VS Code
-- Verify CB1/Pi IP address is correct
-- Check firewall allows port 8000: `sudo ufw allow 8000`
-- Verify API key matches in VS Code and config.py
-- Test: `curl -H "X-API-Key: your-key" http://ip:8000/health`
-
-### Operations failing
-- Check `ARMED=True` for dangerous operations
-- Verify Klipper is running and ready: `systemctl status klipper`
-- Check klippy.log: `tail -f ~/printer_data/logs/klippy.log`
-
-### Spoolman not working
-- Verify Spoolman is running: `systemctl status spoolman`
-- Check URL in config.py matches Spoolman's address
-- Test: `curl http://localhost:7912/api/v1/health`
+---
 
 ## Project Structure
 
 ```
 klipper-mcp/
-├── server.py           # Main MCP server
-├── moonraker.py        # Moonraker API client
-├── config.py           # Configuration
-├── requirements.txt    # Python dependencies
-├── install.sh          # Installation script
-├── klipper-mcp.service # Systemd service file
-├── tools/              # MCP tool implementations
-│   ├── printer.py      # Core printer control
-│   ├── toolchanger.py  # Toolchanger/StealthChanger
-│   ├── tmc.py          # TMC driver control
-│   ├── led_effects.py  # LED animations
-│   ├── filesystem.py   # File operations
-│   ├── camera.py       # Camera & timelapse
-│   ├── statistics.py   # Print history
-│   ├── diagnostics.py  # Error analysis
-│   ├── temperature.py  # Temp control & mesh
-│   ├── spoolman.py     # Filament tracking
-│   ├── notifications.py# Alerts & TTS
-│   ├── backup.py       # Backup & maintenance
-│   ├── gcode_analysis.py # G-code parsing
-│   └── system.py       # System management
-├── data/               # Runtime data
-│   ├── audit.log       # Security log
-│   └── maintenance.json# Maintenance records
-├── backups/            # Config backups
-├── scenes/             # LED scene presets
+├── server.py            # Main MCP server
+├── moonraker.py         # Moonraker API client
+├── config.py            # Configuration (gitignored)
+├── config.example.py    # Configuration template
+├── requirements.txt     # Python dependencies
+├── install.sh           # Installation script
+├── klipper-mcp.service  # Systemd service template
+├── tools/               # MCP tool implementations
+│   ├── printer.py
+│   ├── toolchanger.py
+│   ├── tmc.py
+│   ├── led_effects.py
+│   ├── filesystem.py
+│   ├── camera.py
+│   ├── statistics.py
+│   ├── diagnostics.py
+│   ├── temperature.py
+│   ├── spoolman.py
+│   ├── notifications.py
+│   ├── backup.py
+│   ├── gcode_analysis.py
+│   └── system.py
+├── data/
+│   ├── audit.log
+│   └── maintenance.json
+├── backups/
+├── scenes/
 │   └── led_scenes.json
-└── docs/               # Documentation
+└── docs/
 ```
+
+---
 
 ## Contributing
 
-Contributions welcome! Please:
+Contributions welcome. Please:
+
 1. Fork the repository
 2. Create a feature branch
-3. Add tests if applicable
-4. Submit a pull request
+3. Submit a pull request
 
-## License
-
-MIT License - See LICENSE file for details.
+---
 
 ## Acknowledgments
 
-- [Klipper](https://www.klipper3d.org/) - 3D printer firmware
-- [Moonraker](https://moonraker.readthedocs.io/) - Klipper API server
-- [Model Context Protocol](https://modelcontextprotocol.io/) - AI tool protocol
-- [StealthChanger](https://github.com/DraftShift/StealthChanger) - Toolchanger system
-- [Spoolman](https://github.com/Donkie/Spoolman) - Filament management
+- [Klipper](https://www.klipper3d.org/) — 3D printer firmware
+- [Moonraker](https://moonraker.readthedocs.io/) — Klipper API server
+- [Model Context Protocol](https://modelcontextprotocol.io/) — AI tool protocol
+- [StealthChanger](https://github.com/DraftShift/StealthChanger) — Toolchanger system
+- [Spoolman](https://github.com/Donkie/Spoolman) — Filament management
+
+---
+
+## License
+
+MIT License — see LICENSE file for details.
