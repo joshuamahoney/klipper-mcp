@@ -9,12 +9,6 @@ import config
 from moonraker import get_client
 
 
-def is_path_allowed(path: str) -> bool:
-    """Check if path is within allowed directories."""
-    abs_path = os.path.abspath(path)
-    return any(abs_path.startswith(allowed) for allowed in config.ALLOWED_PATHS)
-
-
 def register_filesystem_tools(mcp):
     """Register filesystem tools."""
     

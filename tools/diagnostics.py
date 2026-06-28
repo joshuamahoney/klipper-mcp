@@ -8,6 +8,9 @@ from typing import Optional
 import config
 from moonraker import get_client
 
+# Cap how much of a log file we download in one call (2 MB)
+_MAX_LOG_BYTES = 2 * 1024 * 1024
+
 
 def register_diagnostics_tools(mcp):
     """Register diagnostics tools."""
@@ -30,8 +33,16 @@ def register_diagnostics_tools(mcp):
                 if response.status == 404:
                     return json.dumps({"error": "klippy.log not found"})
                 response.raise_for_status()
-                content = await response.text()
-                
+                raw = await response.read()
+                # Take the last _MAX_LOG_BYTES to avoid loading huge files
+                if len(raw) > _MAX_LOG_BYTES:
+                    raw = raw[-_MAX_LOG_BYTES:]
+                    # Skip the partial first line
+                    first_nl = raw.find(b'\n')
+                    if first_nl >= 0:
+                        raw = raw[first_nl + 1:]
+                content = raw.decode('utf-8', errors='replace')
+
                 # Get last N lines
                 all_lines = content.split('\n')
                 recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
@@ -102,10 +113,16 @@ def register_diagnostics_tools(mcp):
                 if response.status == 404:
                     return json.dumps({"error": "klippy.log not found"})
                 response.raise_for_status()
-                content = await response.text()
-                
+                raw = await response.read()
+                if len(raw) > _MAX_LOG_BYTES:
+                    raw = raw[-_MAX_LOG_BYTES:]
+                    first_nl = raw.find(b'\n')
+                    if first_nl >= 0:
+                        raw = raw[first_nl + 1:]
+                content = raw.decode('utf-8', errors='replace')
+
                 lines = content.split('\n')
-                
+
                 errors_with_context = []
                 
                 for i, line in enumerate(lines):
