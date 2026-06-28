@@ -1,6 +1,7 @@
 """
 Klipper MCP Server - Main Entry Point
-Compatible with Python 3.9+ (CB1/Raspberry Pi)
+Compatible with Python 3.7+ (runs on the system Python of older SBC images
+such as Debian Buster, alongside Klipper/Moonraker).
 Run with: python server.py
 """
 import asyncio
@@ -164,10 +165,23 @@ def parse_docstring_args(docstring: str) -> dict:
     return args
 
 
+# typing.get_origin / typing.get_args were added in Python 3.8, but this server
+# also runs on the Python 3.7 that ships with older SBC images (Debian Buster,
+# alongside Klipper/Moonraker). Fall back to the dunder attributes there.
+try:
+    from typing import get_origin as _get_origin, get_args as _get_args
+except ImportError:  # Python 3.7
+    def _get_origin(tp):
+        return getattr(tp, "__origin__", None)
+
+    def _get_args(tp):
+        return getattr(tp, "__args__", ())
+
+
 def base_type(hint):
     """Resolve a type hint to its underlying Python type, unwrapping Optional[X]."""
-    if typing.get_origin(hint) is typing.Union:
-        inner = [a for a in typing.get_args(hint) if a is not type(None)]
+    if _get_origin(hint) is typing.Union:
+        inner = [a for a in _get_args(hint) if a is not type(None)]
         if len(inner) == 1:
             return inner[0]
         return None
