@@ -35,7 +35,7 @@ def register_backup_tools(mcp):
         with open(config.MAINTENANCE_LOG_PATH, 'w') as f:
             json.dump(data, f, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def backup_config(backup_name: Optional[str] = None) -> str:
         """
         Create a backup of all Klipper configuration files.
@@ -119,7 +119,7 @@ def register_backup_tools(mcp):
             "backups": backups
         }, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def restore_config(backup_name: str, admin_pin: str) -> str:
         """
         Restore configuration from a backup.
@@ -172,7 +172,7 @@ def register_backup_tools(mcp):
             "note": "Run FIRMWARE_RESTART to apply changes",
         }, indent=2)
 
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def log_maintenance(
         component: str,
         action: str,
@@ -314,7 +314,7 @@ def register_backup_tools(mcp):
             "entries": entries
         }, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def export_printer_data() -> str:
         """
         Export comprehensive printer data for analysis or backup.
