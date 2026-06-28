@@ -309,13 +309,20 @@ def register_system_tools(mcp):
     async def get_service_status(service: str = "all") -> str:
         """
         Get the status of printer-related services.
-        
+
         Args:
             service: Service name or 'all' for all services (default: all)
         """
-        services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest']
-        
-        if service.lower() != 'all':
+        allowed_services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest', 'klipper-mcp']
+
+        if service.lower() == 'all':
+            services = allowed_services
+        elif service not in allowed_services:
+            return json.dumps({
+                "error": f"Service '{service}' not in allowlist",
+                "allowed_services": allowed_services,
+            })
+        else:
             services = [service]
         
         results = {}
@@ -398,63 +405,66 @@ def register_system_tools(mcp):
             return json.dumps({"error": str(e)})
 
     @mcp.tool()
-    async def reboot_system(delay_seconds: int = 5) -> str:
+    async def reboot_system(delay_seconds: int = 60) -> str:
         """
-        Reboot the CB1/Raspberry Pi system.
-        
+        Reboot the host system.
+
         Args:
-            delay_seconds: Delay before reboot (default: 5)
+            delay_seconds: Delay before reboot in seconds (minimum 60, rounded to nearest minute)
         """
         if not config.ARMED:
             return json.dumps({
                 "error": "System reboot requires ARMED=True in config",
-                "armed": False
+                "armed": False,
             })
-        
+
+        delay_minutes = max(1, round(delay_seconds / 60))
+
         try:
-            # Schedule reboot
             subprocess.Popen(
-                ['sudo', 'shutdown', '-r', f'+{delay_seconds // 60}', f'Reboot requested via MCP'],
+                ['sudo', 'shutdown', '-r', f'+{delay_minutes}', 'Reboot requested via MCP'],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
-            
+
             return json.dumps({
                 "status": "scheduled",
-                "message": f"System will reboot in {delay_seconds} seconds",
-                "warning": "All services will be unavailable during reboot"
+                "message": f"System will reboot in approximately {delay_minutes} minute(s)",
+                "warning": "All services will be unavailable during reboot",
             }, indent=2)
-            
+
         except Exception as e:
             return json.dumps({"error": str(e)})
 
     @mcp.tool()
-    async def shutdown_system(delay_seconds: int = 5) -> str:
+    async def shutdown_system(delay_seconds: int = 60) -> str:
         """
-        Shutdown the CB1/Raspberry Pi system.
-        
+        Shutdown the host system.
+
         Args:
-            delay_seconds: Delay before shutdown (default: 5)
+            delay_seconds: Delay before shutdown in seconds (minimum 60, rounded to nearest minute)
         """
         if not config.ARMED:
             return json.dumps({
                 "error": "System shutdown requires ARMED=True in config",
-                "armed": False
+                "armed": False,
             })
-        
+
+        delay_minutes = max(1, round(delay_seconds / 60))
+
         try:
             subprocess.Popen(
-                ['sudo', 'shutdown', '-h', f'+{delay_seconds // 60}', f'Shutdown requested via MCP'],
+                ['sudo', 'shutdown', '-h', f'+{delay_minutes}', 'Shutdown requested via MCP'],
                 stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL
+                stderr=subprocess.DEVNULL,
             )
-            
+
             return json.dumps({
                 "status": "scheduled",
-                "message": f"System will shutdown in {delay_seconds} seconds",
-                "warning": "You will need physical access to power on again"
+                "message": f"System will shut down in approximately {delay_minutes} minute(s)",
+                "warning": "You will need physical access to power on again",
             }, indent=2)
-            
+
         except Exception as e:
             return json.dumps({"error": str(e)})
 

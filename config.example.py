@@ -7,11 +7,18 @@ Copy this file to config.py and customize for your printer.
 """
 import os
 
+# Internal helper: directory where this file lives (used for relative defaults)
+_MCP_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # =============================================================================
 # MOONRAKER CONNECTION
 # =============================================================================
 # URL to your Moonraker instance (usually localhost if running on same machine)
 MOONRAKER_URL = os.getenv("MOONRAKER_URL", "http://localhost:7125")
+
+# Optional Moonraker API key (required if Moonraker has auth enabled)
+# Generate in Moonraker settings or leave empty for trusted local connections
+MOONRAKER_API_KEY = os.getenv("MOONRAKER_API_KEY", "")
 
 # Display name for your printer
 PRINTER_NAME = "my-printer"  # Set during install, or change to match your printer
@@ -42,7 +49,7 @@ ADMIN_PIN = os.getenv("ADMIN_PIN", "123456")
 # FILE PATHS
 # Adjust these paths for your setup (default: BTT CB1 with printer_data)
 # =============================================================================
-PRINTER_DATA_PATH = os.getenv("PRINTER_DATA_PATH", "/home/biqu/printer_data")
+PRINTER_DATA_PATH = os.getenv("PRINTER_DATA_PATH", os.path.expanduser("~/printer_data"))
 CONFIG_PATH = f"{PRINTER_DATA_PATH}/config"
 GCODES_PATH = f"{PRINTER_DATA_PATH}/gcodes"
 LOGS_PATH = f"{PRINTER_DATA_PATH}/logs"
@@ -76,7 +83,7 @@ SPOOLMAN_URL = os.getenv("SPOOLMAN_URL", "http://localhost:7912")
 # ntfy.sh - free, self-hostable push notifications
 NTFY_ENABLED = os.getenv("NTFY_ENABLED", "false").lower() == "true"
 NTFY_URL = os.getenv("NTFY_URL", "https://ntfy.sh")
-NTFY_TOPIC = os.getenv("NTFY_TOPIC", "voron-printer")
+NTFY_TOPIC = os.getenv("NTFY_TOPIC", PRINTER_NAME.lower().replace(" ", "-"))
 
 # Discord webhook
 DISCORD_ENABLED = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
@@ -112,8 +119,8 @@ TOOL_NAMES = {
 # MAINTENANCE TRACKING
 # =============================================================================
 # Path to store maintenance data
-MAINTENANCE_DATA_FILE = os.getenv("MAINTENANCE_DATA_FILE", "/home/biqu/klipper-mcp/data/maintenance.json")
-AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", "/home/biqu/klipper-mcp/data/audit.log")
+MAINTENANCE_DATA_FILE = os.getenv("MAINTENANCE_DATA_FILE", os.path.join(_MCP_DIR, "data", "maintenance.json"))
+AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", os.path.join(_MCP_DIR, "data", "audit.log"))
 
 # Maintenance intervals (in print hours)
 MAINTENANCE_INTERVALS = {
@@ -128,7 +135,7 @@ MAINTENANCE_INTERVALS = {
 # =============================================================================
 # LED SCENES
 # =============================================================================
-LED_SCENES_FILE = os.getenv("LED_SCENES_FILE", "/home/biqu/klipper-mcp/scenes/led_scenes.json")
+LED_SCENES_FILE = os.getenv("LED_SCENES_FILE", os.path.join(_MCP_DIR, "scenes", "led_scenes.json"))
 
 # Aliases for backward compatibility
 MAINTENANCE_LOG_PATH = MAINTENANCE_DATA_FILE
