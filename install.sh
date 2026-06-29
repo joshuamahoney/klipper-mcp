@@ -69,7 +69,15 @@ if [ "$ENABLE_SYNC" = "y" ] || [ "$ENABLE_SYNC" = "yes" ]; then
     else
         printf '\n# Filament-usage sync (added by installer)\nSPOOLMAN_SYNC_ENABLED = os.getenv("SPOOLMAN_SYNC_ENABLED", "true").lower() == "true"\n' >> "$INSTALL_DIR/config.py"
     fi
-    echo "Filament-usage sync ENABLED. Set SPOOLMAN_ENABLED=true and SPOOLMAN_URL in config.py."
+    # Also ensure the file-path settings exist (added in the same PR; may be
+    # absent on configs created before that release).
+    grep -q "^SPOOLMAN_SYNC_POLL_INTERVAL" "$INSTALL_DIR/config.py" || \
+        printf 'SPOOLMAN_SYNC_POLL_INTERVAL = int(os.getenv("SPOOLMAN_SYNC_POLL_INTERVAL", "30"))\n' >> "$INSTALL_DIR/config.py"
+    grep -q "^SPOOLMAN_ACTIVE_SPOOL_FILE" "$INSTALL_DIR/config.py" || \
+        printf 'SPOOLMAN_ACTIVE_SPOOL_FILE = os.getenv("SPOOLMAN_ACTIVE_SPOOL_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "active_spool.json"))\n' >> "$INSTALL_DIR/config.py"
+    grep -q "^SPOOLMAN_SYNC_STATE_FILE" "$INSTALL_DIR/config.py" || \
+        printf 'SPOOLMAN_SYNC_STATE_FILE = os.getenv("SPOOLMAN_SYNC_STATE_FILE", os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "spoolman_sync_state.json"))\n' >> "$INSTALL_DIR/config.py"
+    echo "Filament-usage sync ENABLED. Ensure SPOOLMAN_URL is set in config.py."
 else
     INSTALL_SYNC=0
     echo "Filament-usage sync not enabled (use native Moonraker [spoolman] if available)."

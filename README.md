@@ -251,6 +251,18 @@ curl -H "X-API-Key: your-api-key" http://localhost:8000/health
 journalctl -u klipper-mcp -f
 ```
 
+### Upgrading an Existing Install
+
+Pull the latest code and re-run the installer. The installer will not overwrite your existing `config.py`, but it will patch in any new config options that a release requires:
+
+```bash
+cd ~/klipper-mcp   # or wherever you cloned it
+git pull
+bash install.sh
+```
+
+Re-running the installer restarts `klipper-mcp` automatically. If you had previously opted into the filament-usage sync service, answer **y** again at the prompt so the installer can patch any new config settings and restart that service too.
+
 ---
 
 ## Configuration

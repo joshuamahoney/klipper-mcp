@@ -37,6 +37,17 @@ from moonraker import get_client
 
 logger = logging.getLogger("spoolman_sync")
 
+# Resolve file-path defaults here so the module works with config.py files
+# that predate these settings (e.g. created before the spoolman-sync PR).
+_MCP_DIR = os.path.dirname(os.path.abspath(__file__))
+_ACTIVE_SPOOL_FILE: str = getattr(
+    config, "SPOOLMAN_ACTIVE_SPOOL_FILE",
+    os.path.join(_MCP_DIR, "data", "active_spool.json"))
+_SYNC_STATE_FILE: str = getattr(
+    config, "SPOOLMAN_SYNC_STATE_FILE",
+    os.path.join(_MCP_DIR, "data", "spoolman_sync_state.json"))
+_SPOOLMAN_URL: str = getattr(config, "SPOOLMAN_URL", "http://localhost:7912")
+
 
 # =============================================================================
 # Local active-spool state (shared with the MCP tools in tools/spoolman.py)
@@ -70,25 +81,25 @@ def _write_json_atomic(path: str, data: dict) -> None:
 
 def get_active_spool_id() -> Optional[int]:
     """Return the locally-tracked active spool id, or None if unset."""
-    return _read_json(config.SPOOLMAN_ACTIVE_SPOOL_FILE).get("spool_id")
+    return _read_json(_ACTIVE_SPOOL_FILE).get("spool_id")
 
 
 def set_active_spool_id(spool_id: int) -> None:
     """Set the locally-tracked active spool. Subsequent prints charge to it."""
-    _write_json_atomic(config.SPOOLMAN_ACTIVE_SPOOL_FILE, {"spool_id": spool_id})
+    _write_json_atomic(_ACTIVE_SPOOL_FILE, {"spool_id": spool_id})
 
 
 def clear_active_spool_id() -> None:
     """Clear the locally-tracked active spool. Prints will not be deducted."""
-    _write_json_atomic(config.SPOOLMAN_ACTIVE_SPOOL_FILE, {"spool_id": None})
+    _write_json_atomic(_ACTIVE_SPOOL_FILE, {"spool_id": None})
 
 
 def _load_sync_state() -> dict:
-    return _read_json(config.SPOOLMAN_SYNC_STATE_FILE)
+    return _read_json(_SYNC_STATE_FILE)
 
 
 def _save_sync_state(state: dict) -> None:
-    _write_json_atomic(config.SPOOLMAN_SYNC_STATE_FILE, state)
+    _write_json_atomic(_SYNC_STATE_FILE, state)
 
 
 # =============================================================================
@@ -111,7 +122,7 @@ async def _deduct_filament(session: aiohttp.ClientSession, spool_id: int, length
     Spoolman converts the length to weight using the spool's filament density
     and diameter, so we only send the length Moonraker reported.
     """
-    url = f"{config.SPOOLMAN_URL}/api/v1/spool/{spool_id}/use"
+    url = f"{_SPOOLMAN_URL}/api/v1/spool/{spool_id}/use"
     async with session.put(url, json={"use_length": length_mm}) as resp:
         resp.raise_for_status()
         return await resp.json()
@@ -166,7 +177,7 @@ async def run_monitor() -> None:
     client = get_client()
 
     logger.info("Spoolman sync monitor starting (Spoolman: %s, poll: %ss)",
-                config.SPOOLMAN_URL, interval)
+                _SPOOLMAN_URL, interval)
 
     # Refuse to run if native Moonraker spoolman tracking is active.
     if await _native_spoolman_present(client):

@@ -313,7 +313,7 @@ def register_system_tools(mcp):
         Args:
             service: Service name or 'all' for all services (default: all)
         """
-        allowed_services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest', 'klipper-mcp']
+        allowed_services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest', 'klipper-mcp', 'klipper-mcp-spoolman-sync']
 
         if service.lower() == 'all':
             services = allowed_services
@@ -366,8 +366,8 @@ def register_system_tools(mcp):
         Args:
             service: Service to restart - 'klipper', 'moonraker', 'KlipperScreen', 'crowsnest'
         """
-        allowed_services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest', 'klipper-mcp']
-        
+        allowed_services = ['klipper', 'moonraker', 'KlipperScreen', 'crowsnest', 'klipper-mcp', 'klipper-mcp-spoolman-sync']
+
         if service not in allowed_services:
             return json.dumps({
                 "error": f"Service '{service}' not allowed",
