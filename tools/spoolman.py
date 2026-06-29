@@ -116,67 +116,125 @@ def register_spoolman_tools(mcp):
     
     @mcp.tool()
     async def get_active_spool() -> str:
-        """Get the currently active spool (if set via Moonraker-Spoolman integration)."""
+        """Get the currently active spool.
+
+        In local-sync mode (SPOOLMAN_SYNC_ENABLED, for vendor Moonraker builds)
+        this reads the spool that klipper-mcp is charging prints to. Otherwise
+        it queries Moonraker's native Spoolman integration.
+        """
+        if getattr(config, "SPOOLMAN_SYNC_ENABLED", False):
+            from spoolman_sync import get_active_spool_id
+
+            spool_id = get_active_spool_id()
+            if spool_id is None:
+                return json.dumps({"active_spool": None, "message": "No spool currently active"})
+
+            # Enrich with current spool details from Spoolman, if reachable.
+            details = await spoolman_request("GET", f"/spool/{spool_id}")
+            if "error" in details:
+                return json.dumps({"spool_id": spool_id, "note": details["error"]})
+
+            filament = details.get("filament", {})
+            return json.dumps({
+                "spool_id": spool_id,
+                "filament_name": filament.get("name"),
+                "material": filament.get("material"),
+                "remaining_weight_g": details.get("remaining_weight"),
+                "mode": "local-sync",
+            }, indent=2)
+
         from moonraker import get_client
-        
+
         client = get_client()
-        
+
         # Query Moonraker for active spool (if spoolman integration is configured)
         result = await client.query_printer_objects({
             "spoolman": ["spool_id", "filament_name", "filament_used"]
         })
-        
+
         if "error" in result:
             # Spoolman object may not exist in Moonraker
             return json.dumps({
                 "message": "Spoolman integration not configured in Moonraker",
-                "hint": "Add [spoolman] section to moonraker.conf"
+                "hint": "Add [spoolman] to moonraker.conf, or enable SPOOLMAN_SYNC_ENABLED"
             })
-        
+
         status = result.get("result", {}).get("status", {})
         spoolman = status.get("spoolman", {})
-        
+
         if not spoolman or not spoolman.get("spool_id"):
             return json.dumps({"active_spool": None, "message": "No spool currently active"})
-        
+
         return json.dumps({
             "spool_id": spoolman.get("spool_id"),
             "filament_name": spoolman.get("filament_name"),
             "filament_used_mm": spoolman.get("filament_used"),
         }, indent=2)
-    
+
     @mcp.tool(write=True)
     async def set_active_spool(spool_id: int) -> str:
         """
         Set the active spool for tracking filament usage.
-        
+
+        In local-sync mode this spool is charged for every subsequent print
+        until it is changed. Otherwise it is forwarded to Moonraker's native
+        Spoolman integration.
+
         Args:
             spool_id: The spool ID to set as active
         """
+        if getattr(config, "SPOOLMAN_SYNC_ENABLED", False):
+            from spoolman_sync import set_active_spool_id
+
+            # Verify the spool exists in Spoolman before activating it.
+            details = await spoolman_request("GET", f"/spool/{spool_id}")
+            if "error" in details:
+                return json.dumps({
+                    "error": f"Spool {spool_id} not found in Spoolman: {details['error']}"
+                })
+
+            set_active_spool_id(spool_id)
+            filament = details.get("filament", {})
+            return json.dumps({
+                "success": True,
+                "active_spool_id": spool_id,
+                "filament_name": filament.get("name"),
+                "mode": "local-sync",
+            })
+
         from moonraker import get_client
-        
+
         client = get_client()
         result = await client.run_gcode(f"SET_ACTIVE_SPOOL ID={spool_id}")
-        
+
         if "error" in result:
             return json.dumps({"error": result["error"]})
-        
+
         return json.dumps({
             "success": True,
             "active_spool_id": spool_id
         })
-    
+
     @mcp.tool(write=True)
     async def clear_active_spool() -> str:
         """Clear the currently active spool."""
+        if getattr(config, "SPOOLMAN_SYNC_ENABLED", False):
+            from spoolman_sync import clear_active_spool_id
+
+            clear_active_spool_id()
+            return json.dumps({
+                "success": True,
+                "message": "Active spool cleared (local-sync). Prints will not be deducted until one is set.",
+            })
+
         from moonraker import get_client
-        
+
         client = get_client()
         result = await client.run_gcode("CLEAR_ACTIVE_SPOOL")
-        
+
         if "error" in result:
             return json.dumps({"error": result["error"]})
-        
+
         return json.dumps({
             "success": True,
             "message": "Active spool cleared"

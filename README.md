@@ -282,6 +282,8 @@ nano ~/klipper-mcp/config.py
 | Setting | Description |
 |---|---|
 | `SPOOLMAN_ENABLED` | Enable Spoolman filament tracking |
+| `SPOOLMAN_URL` | Spoolman base URL (local or shared instance) |
+| `SPOOLMAN_SYNC_ENABLED` | Track usage via klipper-mcp (vendor builds without native `[spoolman]`) |
 | `TOOL_COUNT` | Number of toolchanger tools |
 | `DISCORD_WEBHOOK_URL` | Discord notifications |
 
@@ -503,8 +505,35 @@ Then update `config.py`:
 
 ```python
 SPOOLMAN_ENABLED = True
-SPOOLMAN_URL = "http://localhost:7912"
+SPOOLMAN_URL = "http://localhost:7912"   # local, or a shared instance e.g. http://10.8.10.50:7912
 ```
+
+#### Automatic filament-usage tracking
+
+Standard Moonraker tracks filament usage itself via its native `[spoolman]`
+component, deducting from the active spool as each print runs. Some vendor
+Moonraker builds (e.g. Elegoo) ship **without** that component, so usage is
+never recorded.
+
+For those printers, klipper-mcp can do the tracking instead. Enable
+`SPOOLMAN_SYNC_ENABLED` (the installer offers this as a prompt) to run a small
+monitor service that watches finished print jobs and deducts the filament each
+one used — including partial usage on cancelled prints — from the active spool:
+
+```python
+SPOOLMAN_ENABLED = True
+SPOOLMAN_URL = "http://10.8.10.50:7912"
+SPOOLMAN_SYNC_ENABLED = True   # ONLY if Moonraker lacks native [spoolman] support
+```
+
+> ⚠️ Do **not** enable this on a printer whose Moonraker already has native
+> `[spoolman]` tracking — both would deduct the same filament and double-count
+> it. The monitor detects the native integration and refuses to start as a
+> safety net.
+
+Set which spool to charge with the `set_active_spool` tool; every subsequent
+print is charged to it until you change it. This works the same whether you
+run a per-printer Spoolman or a single shared instance for the whole fleet.
 
 ### TMC Autotune
 

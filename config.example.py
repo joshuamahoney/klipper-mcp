@@ -81,6 +81,28 @@ CAMERA_STREAM_URL = os.getenv("CAMERA_STREAM_URL", "http://localhost/webcam/?act
 SPOOLMAN_ENABLED = os.getenv("SPOOLMAN_ENABLED", "false").lower() == "true"
 SPOOLMAN_URL = os.getenv("SPOOLMAN_URL", "http://localhost:7912")
 
+# --- Local filament-usage sync ---------------------------------------------
+# For printers WITHOUT native Moonraker [spoolman] support (e.g. Elegoo and
+# other vendor Moonraker builds). When True, a separate monitor service
+# (spoolman_sync.py) watches finished print jobs and deducts the filament each
+# one used from the active spool in Spoolman.
+#
+# IMPORTANT: Leave this False if your Moonraker has the native [spoolman]
+# component (standard Moonraker). Enabling both would double-count every
+# print's filament usage. The monitor also refuses to start if it detects the
+# native integration, as a safety net.
+SPOOLMAN_SYNC_ENABLED = os.getenv("SPOOLMAN_SYNC_ENABLED", "false").lower() == "true"
+
+# How often (seconds) the monitor polls Moonraker for finished prints.
+SPOOLMAN_SYNC_POLL_INTERVAL = int(os.getenv("SPOOLMAN_SYNC_POLL_INTERVAL", "30"))
+
+# State files for the monitor. The active-spool file is also read/written by
+# the set_active_spool / clear_active_spool MCP tools when sync mode is on.
+SPOOLMAN_ACTIVE_SPOOL_FILE = os.getenv(
+    "SPOOLMAN_ACTIVE_SPOOL_FILE", os.path.join(_MCP_DIR, "data", "active_spool.json"))
+SPOOLMAN_SYNC_STATE_FILE = os.getenv(
+    "SPOOLMAN_SYNC_STATE_FILE", os.path.join(_MCP_DIR, "data", "spoolman_sync_state.json"))
+
 # =============================================================================
 # NOTIFICATION SETTINGS (all optional)
 # =============================================================================
