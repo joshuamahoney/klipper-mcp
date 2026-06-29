@@ -30,10 +30,13 @@ echo "=== Installing Spoolman v${SPOOLMAN_VERSION} ==="
 echo "User:      ${SPOOLMAN_USER}"
 echo "Directory: ${SPOOLMAN_DIR}"
 
-# Install base dependencies (unzip is required to extract the release archive)
+# Install base dependencies (unzip is required to extract the release archive).
+# python3-venv may be unavailable on EOL distros (e.g. Debian Buster) — that's
+# OK because the uv fallback below handles old Python without needing it.
 echo "Installing dependencies..."
 sudo apt-get update
-sudo apt-get install -y python3 python3-pip python3-venv unzip curl
+sudo apt-get install -y python3 python3-pip unzip curl || true
+sudo apt-get install -y python3-venv 2>/dev/null || true
 
 # Create directory
 echo "Creating Spoolman directory..."
