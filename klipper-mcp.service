@@ -1,3 +1,11 @@
+# Reference template only — install.sh generates the real unit with the correct
+# user and paths (derived from the clone location). Replace the __PLACEHOLDERS__
+# if you install the service by hand.
+#
+#   __USER__       service user (e.g. output of `whoami`)
+#   __GROUP__      that user's primary group (e.g. output of `id -gn`)
+#   __INSTALL_DIR__ absolute path to the cloned repo (e.g. /home/<user>/klipper-mcp)
+
 [Unit]
 Description=Klipper MCP Server
 After=network.target moonraker.service
@@ -5,11 +13,11 @@ Wants=moonraker.service
 
 [Service]
 Type=simple
-User=biqu
-Group=biqu
-WorkingDirectory=/home/biqu/klipper-mcp
-Environment="PATH=/home/biqu/klipper-mcp/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
-ExecStart=/home/biqu/klipper-mcp/venv/bin/python server.py
+User=__USER__
+Group=__GROUP__
+WorkingDirectory=__INSTALL_DIR__
+Environment="PATH=__INSTALL_DIR__/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ExecStart=__INSTALL_DIR__/venv/bin/python server.py
 Restart=always
 RestartSec=10
 

@@ -7,12 +7,7 @@ import os
 from typing import Optional
 import config
 from moonraker import get_client
-
-
-def is_path_allowed(path: str) -> bool:
-    """Check if path is within allowed directories."""
-    abs_path = os.path.abspath(path)
-    return any(abs_path.startswith(allowed) for allowed in config.ALLOWED_PATHS)
+from ._util import format_duration
 
 
 def register_filesystem_tools(mcp):
@@ -150,7 +145,7 @@ def register_filesystem_tools(mcp):
         except Exception as e:
             return json.dumps({"error": str(e)})
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def write_file(filepath: str, content: str, pin: str) -> str:
         """
         Write content to a file on the printer.
@@ -201,7 +196,7 @@ def register_filesystem_tools(mcp):
         except Exception as e:
             return json.dumps({"error": str(e)})
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def delete_file(filepath: str, pin: str) -> str:
         """
         Delete a file from the printer.
@@ -247,7 +242,7 @@ def register_filesystem_tools(mcp):
             "slicer": metadata.get("slicer"),
             "slicer_version": metadata.get("slicer_version"),
             "estimated_time": metadata.get("estimated_time"),
-            "estimated_time_formatted": format_time(metadata.get("estimated_time")),
+            "estimated_time_formatted": format_duration(metadata.get("estimated_time"), empty="unknown"),
             "filament_total_mm": metadata.get("filament_total"),
             "filament_total_grams": metadata.get("filament_weight_total"),
             "layer_height": metadata.get("layer_height"),
@@ -334,17 +329,3 @@ def register_filesystem_tools(mcp):
                 }, indent=2)
         except Exception as e:
             return json.dumps({"error": str(e)})
-
-
-def format_time(seconds: float) -> str:
-    """Format seconds into human readable time."""
-    if not seconds:
-        return "unknown"
-    
-    hours = int(seconds // 3600)
-    minutes = int((seconds % 3600) // 60)
-    
-    if hours > 0:
-        return f"{hours}h {minutes}m"
-    else:
-        return f"{minutes}m"

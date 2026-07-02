@@ -7,14 +7,21 @@ Copy this file to config.py and customize for your printer.
 """
 import os
 
+# Internal helper: directory where this file lives (used for relative defaults)
+_MCP_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # =============================================================================
 # MOONRAKER CONNECTION
 # =============================================================================
 # URL to your Moonraker instance (usually localhost if running on same machine)
 MOONRAKER_URL = os.getenv("MOONRAKER_URL", "http://localhost:7125")
 
+# Optional Moonraker API key (required if Moonraker has auth enabled)
+# Generate in Moonraker settings or leave empty for trusted local connections
+MOONRAKER_API_KEY = os.getenv("MOONRAKER_API_KEY", "")
+
 # Display name for your printer
-PRINTER_NAME = "Voron"
+PRINTER_NAME = "my-printer"  # Set during install, or change to match your printer
 
 # =============================================================================
 # MCP SERVER SETTINGS
@@ -35,6 +42,10 @@ API_KEY = os.getenv("API_KEY", "CHANGE-ME-TO-A-SECURE-KEY")
 # Set to True once you've verified everything works
 ARMED = os.getenv("ARMED", "false").lower() == "true"
 
+# Read-only mode — when True, all write tools are blocked at registration time,
+# independent of ARMED/ADMIN_PIN. Safe for monitoring-only MCP connections.
+READ_ONLY = os.getenv("READ_ONLY", "false").lower() == "true"
+
 # Admin PIN for destructive operations (delete files, restore config, reboot)
 ADMIN_PIN = os.getenv("ADMIN_PIN", "123456")
 
@@ -42,7 +53,7 @@ ADMIN_PIN = os.getenv("ADMIN_PIN", "123456")
 # FILE PATHS
 # Adjust these paths for your setup (default: BTT CB1 with printer_data)
 # =============================================================================
-PRINTER_DATA_PATH = os.getenv("PRINTER_DATA_PATH", "/home/biqu/printer_data")
+PRINTER_DATA_PATH = os.getenv("PRINTER_DATA_PATH", os.path.expanduser("~/printer_data"))
 CONFIG_PATH = f"{PRINTER_DATA_PATH}/config"
 GCODES_PATH = f"{PRINTER_DATA_PATH}/gcodes"
 LOGS_PATH = f"{PRINTER_DATA_PATH}/logs"
@@ -70,13 +81,35 @@ CAMERA_STREAM_URL = os.getenv("CAMERA_STREAM_URL", "http://localhost/webcam/?act
 SPOOLMAN_ENABLED = os.getenv("SPOOLMAN_ENABLED", "false").lower() == "true"
 SPOOLMAN_URL = os.getenv("SPOOLMAN_URL", "http://localhost:7912")
 
+# --- Local filament-usage sync ---------------------------------------------
+# For printers WITHOUT native Moonraker [spoolman] support (e.g. Elegoo and
+# other vendor Moonraker builds). When True, a separate monitor service
+# (spoolman_sync.py) watches finished print jobs and deducts the filament each
+# one used from the active spool in Spoolman.
+#
+# IMPORTANT: Leave this False if your Moonraker has the native [spoolman]
+# component (standard Moonraker). Enabling both would double-count every
+# print's filament usage. The monitor also refuses to start if it detects the
+# native integration, as a safety net.
+SPOOLMAN_SYNC_ENABLED = os.getenv("SPOOLMAN_SYNC_ENABLED", "false").lower() == "true"
+
+# How often (seconds) the monitor polls Moonraker for finished prints.
+SPOOLMAN_SYNC_POLL_INTERVAL = int(os.getenv("SPOOLMAN_SYNC_POLL_INTERVAL", "30"))
+
+# State files for the monitor. The active-spool file is also read/written by
+# the set_active_spool / clear_active_spool MCP tools when sync mode is on.
+SPOOLMAN_ACTIVE_SPOOL_FILE = os.getenv(
+    "SPOOLMAN_ACTIVE_SPOOL_FILE", os.path.join(_MCP_DIR, "data", "active_spool.json"))
+SPOOLMAN_SYNC_STATE_FILE = os.getenv(
+    "SPOOLMAN_SYNC_STATE_FILE", os.path.join(_MCP_DIR, "data", "spoolman_sync_state.json"))
+
 # =============================================================================
 # NOTIFICATION SETTINGS (all optional)
 # =============================================================================
 # ntfy.sh - free, self-hostable push notifications
 NTFY_ENABLED = os.getenv("NTFY_ENABLED", "false").lower() == "true"
 NTFY_URL = os.getenv("NTFY_URL", "https://ntfy.sh")
-NTFY_TOPIC = os.getenv("NTFY_TOPIC", "voron-printer")
+NTFY_TOPIC = os.getenv("NTFY_TOPIC", PRINTER_NAME.lower().replace(" ", "-"))
 
 # Discord webhook
 DISCORD_ENABLED = os.getenv("DISCORD_ENABLED", "false").lower() == "true"
@@ -112,8 +145,8 @@ TOOL_NAMES = {
 # MAINTENANCE TRACKING
 # =============================================================================
 # Path to store maintenance data
-MAINTENANCE_DATA_FILE = os.getenv("MAINTENANCE_DATA_FILE", "/home/biqu/klipper-mcp/data/maintenance.json")
-AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", "/home/biqu/klipper-mcp/data/audit.log")
+MAINTENANCE_DATA_FILE = os.getenv("MAINTENANCE_DATA_FILE", os.path.join(_MCP_DIR, "data", "maintenance.json"))
+AUDIT_LOG_FILE = os.getenv("AUDIT_LOG_FILE", os.path.join(_MCP_DIR, "data", "audit.log"))
 
 # Maintenance intervals (in print hours)
 MAINTENANCE_INTERVALS = {
@@ -128,7 +161,7 @@ MAINTENANCE_INTERVALS = {
 # =============================================================================
 # LED SCENES
 # =============================================================================
-LED_SCENES_FILE = os.getenv("LED_SCENES_FILE", "/home/biqu/klipper-mcp/scenes/led_scenes.json")
+LED_SCENES_FILE = os.getenv("LED_SCENES_FILE", os.path.join(_MCP_DIR, "scenes", "led_scenes.json"))
 
 # Aliases for backward compatibility
 MAINTENANCE_LOG_PATH = MAINTENANCE_DATA_FILE

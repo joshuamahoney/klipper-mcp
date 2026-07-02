@@ -8,6 +8,14 @@ from typing import Optional
 import config
 from moonraker import get_client
 
+# Klipper runtime log lines start with a timestamp or the !! error prefix.
+# Config-dump lines (e.g. "max_error = 30") have neither, so this pattern
+# lets us skip false positives from the startup config section.
+_RUNTIME_LINE_RE = re.compile(r'^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}')
+
+# Cap how much of a log file we download in one call (2 MB)
+_MAX_LOG_BYTES = 2 * 1024 * 1024
+
 
 def register_diagnostics_tools(mcp):
     """Register diagnostics tools."""
@@ -30,8 +38,16 @@ def register_diagnostics_tools(mcp):
                 if response.status == 404:
                     return json.dumps({"error": "klippy.log not found"})
                 response.raise_for_status()
-                content = await response.text()
-                
+                raw = await response.read()
+                # Take the last _MAX_LOG_BYTES to avoid loading huge files
+                if len(raw) > _MAX_LOG_BYTES:
+                    raw = raw[-_MAX_LOG_BYTES:]
+                    # Skip the partial first line
+                    first_nl = raw.find(b'\n')
+                    if first_nl >= 0:
+                        raw = raw[first_nl + 1:]
+                content = raw.decode('utf-8', errors='replace')
+
                 # Get last N lines
                 all_lines = content.split('\n')
                 recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
@@ -44,25 +60,26 @@ def register_diagnostics_tools(mcp):
                 
                 for i, line in enumerate(recent_lines):
                     line_lower = line.lower()
-                    
-                    # Errors
-                    if 'error' in line_lower or 'exception' in line_lower:
+                    is_runtime = _RUNTIME_LINE_RE.match(line) or line.startswith('!!')
+
+                    # Errors (runtime lines only to avoid config-dump false positives)
+                    if is_runtime and ('error' in line_lower or 'exception' in line_lower):
                         errors.append({"line": len(all_lines) - lines + i + 1, "text": line.strip()})
-                    
+
                     # Warnings
-                    elif 'warning' in line_lower or 'warn' in line_lower:
+                    elif is_runtime and ('warning' in line_lower or 'warn' in line_lower):
                         warnings.append({"line": len(all_lines) - lines + i + 1, "text": line.strip()})
-                    
-                    # Shutdown events
+
+                    # Shutdown events (no runtime guard — shutdown lines may lack a timestamp)
                     elif 'shutdown' in line_lower:
                         shutdowns.append({"line": len(all_lines) - lines + i + 1, "text": line.strip()})
-                    
+
                     # TMC driver issues
-                    elif 'tmc' in line_lower and ('fault' in line_lower or 'error' in line_lower or 'overtemp' in line_lower):
+                    elif is_runtime and 'tmc' in line_lower and ('fault' in line_lower or 'error' in line_lower or 'overtemp' in line_lower):
                         tmc_errors.append({"line": len(all_lines) - lines + i + 1, "text": line.strip()})
-                    
+
                     # MCU issues
-                    elif 'mcu' in line_lower and ('timeout' in line_lower or 'disconnect' in line_lower or 'lost' in line_lower):
+                    elif is_runtime and 'mcu' in line_lower and ('timeout' in line_lower or 'disconnect' in line_lower or 'lost' in line_lower):
                         mcu_issues.append({"line": len(all_lines) - lines + i + 1, "text": line.strip()})
                 
                 return json.dumps({
@@ -102,19 +119,28 @@ def register_diagnostics_tools(mcp):
                 if response.status == 404:
                     return json.dumps({"error": "klippy.log not found"})
                 response.raise_for_status()
-                content = await response.text()
-                
+                raw = await response.read()
+                if len(raw) > _MAX_LOG_BYTES:
+                    raw = raw[-_MAX_LOG_BYTES:]
+                    first_nl = raw.find(b'\n')
+                    if first_nl >= 0:
+                        raw = raw[first_nl + 1:]
+                content = raw.decode('utf-8', errors='replace')
+
                 lines = content.split('\n')
-                
+
                 errors_with_context = []
                 
                 for i, line in enumerate(lines):
+                    is_runtime = _RUNTIME_LINE_RE.match(line) or line.startswith('!!')
+                    if not is_runtime:
+                        continue
                     if 'error' in line.lower() or 'exception' in line.lower():
                         # Get context: 2 lines before and 2 after
                         start = max(0, i - 2)
                         end = min(len(lines), i + 3)
                         context = lines[start:end]
-                        
+
                         errors_with_context.append({
                             "line_number": i + 1,
                             "error": line.strip(),
@@ -421,7 +447,7 @@ def register_diagnostics_tools(mcp):
             "files": log_files
         }, indent=2)
 
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def clear_old_logs(days_to_keep: int = 7, dry_run: bool = True) -> str:
         """
         Clear log files older than specified days.
@@ -490,7 +516,7 @@ def register_diagnostics_tools(mcp):
             "message": "Dry run - no files deleted. Set dry_run=false to delete." if dry_run else f"Deleted {len(to_delete)} files"
         }, indent=2)
 
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def truncate_log(log_name: str = "klippy", keep_lines: int = 1000) -> str:
         """
         Truncate a log file keeping only the most recent lines.
@@ -585,9 +611,10 @@ def register_diagnostics_tools(mcp):
                     
                 for line in lines:
                     line_lower = line.lower()
-                    if 'error' in line_lower:
+                    is_runtime = _RUNTIME_LINE_RE.match(line) or line.startswith('!!')
+                    if is_runtime and 'error' in line_lower:
                         summary["klippy"]["errors"] += 1
-                    elif 'warning' in line_lower or 'warn' in line_lower:
+                    elif is_runtime and ('warning' in line_lower or 'warn' in line_lower):
                         summary["klippy"]["warnings"] += 1
                     elif 'shutdown' in line_lower:
                         summary["klippy"]["shutdowns"] += 1

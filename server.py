@@ -1,14 +1,17 @@
 """
 Klipper MCP Server - Main Entry Point
-Compatible with Python 3.9+ (CB1/Raspberry Pi)
+Compatible with Python 3.7+ (runs on the system Python of older SBC images
+such as Debian Buster, alongside Klipper/Moonraker).
 Run with: python server.py
 """
 import asyncio
 import inspect
 import json
 import os
+import re
 import sys
 import traceback
+import typing
 from datetime import datetime
 from aiohttp import web
 from typing import Any, Callable, Dict, get_type_hints
@@ -131,23 +134,100 @@ def error_html(title: str, error: str) -> str:
 # Tool registry
 TOOLS: Dict[str, Dict[str, Any]] = {}
 
+
 def get_tool_description(tool_info):
     """Extract the first meaningful line from a tool's docstring."""
     doc = tool_info.get("description", "") or ""
-    # Strip leading/trailing whitespace and split by lines
-    lines = doc.strip().split('\n')
-    # Find the first non-empty line
-    for line in lines:
+    for line in doc.strip().split('\n'):
         stripped = line.strip()
         if stripped:
             return stripped
     return "No description available"
 
 
+def parse_docstring_args(docstring: str) -> dict:
+    """Parse parameter descriptions from the Args: section of a Google-style docstring."""
+    if not docstring:
+        return {}
+    args = {}
+    in_args = False
+    for line in docstring.split('\n'):
+        stripped = line.strip()
+        if stripped == 'Args:':
+            in_args = True
+            continue
+        if in_args:
+            if stripped in ('Returns:', 'Raises:', 'Note:', 'Notes:', 'Example:', 'Examples:'):
+                break
+            match = re.match(r'^(\w+):\s+(.+)$', stripped)
+            if match:
+                args[match.group(1)] = match.group(2)
+    return args
+
+
+# typing.get_origin / typing.get_args were added in Python 3.8, but this server
+# also runs on the Python 3.7 that ships with older SBC images (Debian Buster,
+# alongside Klipper/Moonraker). Fall back to the dunder attributes there.
+try:
+    from typing import get_origin as _get_origin, get_args as _get_args
+except ImportError:  # Python 3.7
+    def _get_origin(tp):
+        return getattr(tp, "__origin__", None)
+
+    def _get_args(tp):
+        return getattr(tp, "__args__", ())
+
+
+def base_type(hint):
+    """Resolve a type hint to its underlying Python type, unwrapping Optional[X]."""
+    if _get_origin(hint) is typing.Union:
+        inner = [a for a in _get_args(hint) if a is not type(None)]
+        if len(inner) == 1:
+            return inner[0]
+        return None
+    return hint
+
+
+def get_json_type(hint) -> str:
+    """Convert a Python type hint to a JSON Schema type string, handling Optional[X]."""
+    base_map = {str: "string", int: "integer", float: "number", bool: "boolean"}
+    return base_map.get(base_type(hint), "string")
+
+
+def coerce_arguments(func: Callable, raw_args: Dict[str, Any]) -> Dict[str, Any]:
+    """Coerce string arguments (e.g. from an HTML query string) to a function's hinted types.
+
+    The JSON and MCP paths already receive correctly typed values; this is only
+    needed for the browser convenience interface, where every query param is a
+    string. Unknown or already-typed values are passed through unchanged.
+    """
+    try:
+        hints = get_type_hints(func)
+    except Exception:
+        hints = {}
+
+    coerced: Dict[str, Any] = {}
+    for key, value in raw_args.items():
+        target = base_type(hints.get(key))
+        if not isinstance(value, str):
+            coerced[key] = value
+        elif target is bool:
+            coerced[key] = value.strip().lower() in ("true", "1", "yes", "on")
+        elif target in (int, float):
+            try:
+                coerced[key] = target(value)
+            except ValueError:
+                coerced[key] = value
+        else:
+            coerced[key] = value
+    return coerced
+
+
 
 def audit_log(action: str, details: dict = None):
     """Write to audit log for security tracking."""
-    log_path = getattr(config, 'AUDIT_LOG_FILE', '/home/biqu/klipper-mcp/data/audit.log')
+    _default_log = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'audit.log')
+    log_path = getattr(config, 'AUDIT_LOG_FILE', _default_log)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     
     entry = {
@@ -170,24 +250,39 @@ def audit_log(action: str, details: dict = None):
 def register_all_tools():
     """Import and register all tool modules."""
     from tools import register_all_tools as _register
-    
-    # Create a mock MCP object that captures tool registrations
+
+    read_only = getattr(config, "READ_ONLY", False)
+    skipped = []
+
+    # Tools that mutate state declare write=True. In READ_ONLY mode they are
+    # never registered, so they cannot be called — a server-side guarantee
+    # independent of ARMED or ADMIN_PIN.
     class MockMCP:
-        def tool(self):
+        def tool(self, write: bool = False):
             def decorator(func):
                 tool_name = func.__name__
+                if read_only and write:
+                    skipped.append(tool_name)
+                    return func
                 TOOLS[tool_name] = {
                     "function": func,
                     "description": func.__doc__ or "",
-                    "name": tool_name
+                    "name": tool_name,
                 }
                 return func
             return decorator
-    
+
     mock_mcp = MockMCP()
     _register(mock_mcp)
-    
-    print(f"✓ Registered {len(TOOLS)} tools", file=sys.stderr)
+
+    if read_only:
+        print(
+            f"✓ READ_ONLY mode: registered {len(TOOLS)} read tools, "
+            f"blocked {len(skipped)} write tools",
+            file=sys.stderr,
+        )
+    else:
+        print(f"✓ Registered {len(TOOLS)} tools", file=sys.stderr)
 
 
 # ============================================================
@@ -268,9 +363,11 @@ async def handle_server_info(request: web.Request) -> web.Response:
         "printer": config.PRINTER_NAME,
         "moonraker_url": config.MOONRAKER_URL,
         "armed": config.ARMED,
+        "read_only": getattr(config, "READ_ONLY", False),
         "tools_count": len(TOOLS),
         "features": {
-            "stealthchanger": True,
+            "toolchanger": config.TOOL_COUNT > 1,
+            "tool_count": config.TOOL_COUNT,
             "led_effects": True,
             "spoolman": config.SPOOLMAN_ENABLED,
             "tts": config.TTS_ENABLED,
@@ -317,9 +414,9 @@ async def handle_health(request: web.Request) -> web.Response:
         client = get_client()
         result = await client.get_printer_status()
         moonraker_ok = "error" not in result
-    except:
+    except Exception:
         moonraker_ok = False
-    
+
     return web.json_response({
         "status": "ok" if moonraker_ok else "degraded",
         "moonraker_connected": moonraker_ok,
@@ -348,7 +445,7 @@ async def handle_server_info_html(request: web.Request) -> web.Response:
     <section>
         <h2>Features</h2>
         <dl>
-            <dt>StealthChanger</dt><dd><span class="status-ok">Enabled</span></dd>
+            <dt>Toolchanger</dt><dd><span class="{"status-ok" if config.TOOL_COUNT > 1 else ""}">{config.TOOL_COUNT} tool(s)</span></dd>
             <dt>LED Effects</dt><dd><span class="status-ok">Enabled</span></dd>
             <dt>Spoolman</dt><dd><span class="{"status-ok" if config.SPOOLMAN_ENABLED else "status-error"}">{config.SPOOLMAN_ENABLED}</span></dd>
             <dt>TTS Notifications</dt><dd><span class="{"status-ok" if config.TTS_ENABLED else "status-error"}">{config.TTS_ENABLED}</span></dd>
@@ -381,17 +478,33 @@ async def handle_printer_status_html(request: web.Request) -> web.Response:
         
         status = result.get("result", {}).get("status", {})
         print_stats = status.get("print_stats", {})
-        extruder = status.get("extruder", {})
-        extruder1 = status.get("extruder1", {})
-        extruder2 = status.get("extruder2", {})
-        bed = status.get("heater_bed", {})
         toolhead = status.get("toolhead", {})
-        
+
         state = print_stats.get("state", "unknown")
         state_class = "status-ok" if state in ["standby", "printing", "complete"] else "status-error" if state == "error" else ""
-        
+
         progress = print_stats.get("progress", 0) or 0
-        
+
+        # Build temperature rows dynamically from available heaters
+        def _heater_row(label, data):
+            if not data:
+                return ""
+            temp = data.get("temperature", 0) or 0
+            target = data.get("target", 0) or 0
+            power = (data.get("power", 0) or 0) * 100
+            return (
+                f'<tr><td><strong>{escape(label)}</strong></td>'
+                f'<td class="temp">{temp:.1f}°C</td>'
+                f'<td>{target:.0f}°C</td>'
+                f'<td>{power:.0f}%</td></tr>'
+            )
+
+        heater_rows = _heater_row("Extruder (T0)", status.get("extruder", {}))
+        for i in range(1, config.TOOL_COUNT):
+            ext_label = config.TOOL_NAMES.get(i, f"T{i}")
+            heater_rows += _heater_row(ext_label, status.get(f"extruder{i}", {}))
+        heater_rows += _heater_row("Bed", status.get("heater_bed", {}))
+
         body = f'''
         <section>
             <h2>Print State</h2>
@@ -405,35 +518,12 @@ async def handle_printer_status_html(request: web.Request) -> web.Response:
                 <dt>Print Duration</dt><dd>{print_stats.get("print_duration", 0):.0f}s</dd>
             </dl>
         </section>
-        
+
         <section>
             <h2>Temperatures</h2>
             <table>
                 <tr><th>Heater</th><th>Current</th><th>Target</th><th>Power</th></tr>
-                <tr>
-                    <td><strong>T0 (Extruder)</strong></td>
-                    <td class="temp">{extruder.get("temperature", 0):.1f}°C</td>
-                    <td>{extruder.get("target", 0):.0f}°C</td>
-                    <td>{(extruder.get("power", 0) or 0) * 100:.0f}%</td>
-                </tr>
-                <tr>
-                    <td><strong>T1 (Extruder1)</strong></td>
-                    <td class="temp">{extruder1.get("temperature", 0):.1f}°C</td>
-                    <td>{extruder1.get("target", 0):.0f}°C</td>
-                    <td>{(extruder1.get("power", 0) or 0) * 100:.0f}%</td>
-                </tr>
-                <tr>
-                    <td><strong>T2 (Extruder2)</strong></td>
-                    <td class="temp">{extruder2.get("temperature", 0):.1f}°C</td>
-                    <td>{extruder2.get("target", 0):.0f}°C</td>
-                    <td>{(extruder2.get("power", 0) or 0) * 100:.0f}%</td>
-                </tr>
-                <tr>
-                    <td><strong>Bed</strong></td>
-                    <td class="temp">{bed.get("temperature", 0):.1f}°C</td>
-                    <td>{bed.get("target", 0):.0f}°C</td>
-                    <td>{(bed.get("power", 0) or 0) * 100:.0f}%</td>
-                </tr>
+                {heater_rows}
             </table>
         </section>
         
@@ -528,11 +618,10 @@ async def handle_health_html(request: web.Request) -> web.Response:
         client = get_client()
         result = await client.get_printer_status()
         moonraker_ok = "error" not in result
+        error_msg = None
     except Exception as e:
         moonraker_ok = False
         error_msg = str(e)
-    else:
-        error_msg = None
     
     status_class = "status-ok" if moonraker_ok else "status-error"
     status_text = "OK" if moonraker_ok else "DEGRADED"
@@ -600,18 +689,21 @@ async def handle_call_tool_html(request: web.Request) -> web.Response:
         return web.Response(text=html_page(f"Tool: {tool_name}", body), content_type='text/html')
     
     audit_log("tool_call_html", {"tool": tool_name, "arguments": arguments})
-    
+
+    # Query-string args arrive as strings; coerce to the tool's hinted types
+    arguments = coerce_arguments(func, arguments)
+
     try:
         if asyncio.iscoroutinefunction(func):
             result = await func(**arguments)
         else:
             result = func(**arguments)
-        
+
         # Parse JSON if string
         if isinstance(result, str):
             try:
                 result = json.loads(result)
-            except:
+            except Exception:
                 pass
         
         # Render result
@@ -905,7 +997,6 @@ async def handle_mcp(request: web.Request) -> web.Response:
         
         elif method == "tools/list":
             tools_list = []
-            type_map = {str: "string", int: "integer", float: "number", bool: "boolean"}
             for name, tool_info in TOOLS.items():
                 func = tool_info["function"]
                 sig = inspect.signature(func)
@@ -913,20 +1004,25 @@ async def handle_mcp(request: web.Request) -> web.Response:
                     hints = get_type_hints(func)
                 except Exception:
                     hints = {}
+                arg_descriptions = parse_docstring_args(tool_info.get("description", ""))
                 properties = {}
                 required = []
                 for param_name, param in sig.parameters.items():
-                    json_type = type_map.get(hints.get(param_name), "string")
-                    properties[param_name] = {"type": json_type}
+                    json_type = get_json_type(hints.get(param_name))
+                    prop: Dict[str, Any] = {"type": json_type}
+                    desc = arg_descriptions.get(param_name)
+                    if desc:
+                        prop["description"] = desc
+                    properties[param_name] = prop
                     if param.default is inspect.Parameter.empty:
                         required.append(param_name)
-                input_schema = {"type": "object", "properties": properties}
+                input_schema: Dict[str, Any] = {"type": "object", "properties": properties}
                 if required:
                     input_schema["required"] = required
                 tools_list.append({
                     "name": name,
                     "description": get_tool_description(tool_info),
-                    "inputSchema": input_schema
+                    "inputSchema": input_schema,
                 })
             result = {"tools": tools_list}
         
@@ -951,7 +1047,7 @@ async def handle_mcp(request: web.Request) -> web.Response:
                 if isinstance(tool_result, str):
                     try:
                         tool_result = json.loads(tool_result)
-                    except:
+                    except Exception:
                         pass
                 
                 result = {
@@ -966,17 +1062,21 @@ async def handle_mcp(request: web.Request) -> web.Response:
         
         else:
             error = {"code": -32601, "message": f"Method not found: {method}"}
-    
+
     except Exception as e:
         traceback.print_exc()
         error = {"code": -32603, "message": str(e)}
-    
+
+    # JSON-RPC notifications (no "id") must not receive a response
+    if request_id is None:
+        return web.Response(status=204)
+
     response = {"jsonrpc": "2.0", "id": request_id}
     if error:
         response["error"] = error
     else:
         response["result"] = result
-    
+
     return web.json_response(response)
 
 

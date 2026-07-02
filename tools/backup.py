@@ -4,6 +4,7 @@ Configuration backup, restore, and maintenance tracking
 """
 import json
 import os
+import aiohttp
 from datetime import datetime
 from typing import Optional
 import config
@@ -34,7 +35,7 @@ def register_backup_tools(mcp):
         with open(config.MAINTENANCE_LOG_PATH, 'w') as f:
             json.dump(data, f, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def backup_config(backup_name: Optional[str] = None) -> str:
         """
         Create a backup of all Klipper configuration files.
@@ -57,10 +58,11 @@ def register_backup_tools(mcp):
         backup_dir = f"config_backups/{backup_name}"
         
         backed_up_files = []
-        
+        failed_files = []
+
         # Copy each config file to backup
         session = await client._get_session()
-        
+
         for file_info in files:
             filename = file_info.get("path", file_info.get("filename", ""))
             if filename.endswith(('.cfg', '.conf')):
@@ -79,14 +81,15 @@ def register_backup_tools(mcp):
                             
                             backed_up_files.append(filename)
                 except Exception as e:
-                    pass  # Continue with other files
+                    failed_files.append({"file": filename, "error": str(e)})
         
         return json.dumps({
-            "success": True,
+            "success": len(failed_files) == 0,
             "backup_name": backup_name,
             "backup_path": os.path.join(config.BACKUP_PATH, backup_name),
             "files_backed_up": backed_up_files,
-            "file_count": len(backed_up_files)
+            "file_count": len(backed_up_files),
+            "failed_files": failed_files if failed_files else None,
         }, indent=2)
     
     @mcp.tool()
@@ -116,7 +119,7 @@ def register_backup_tools(mcp):
             "backups": backups
         }, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def restore_config(backup_name: str, admin_pin: str) -> str:
         """
         Restore configuration from a backup.
@@ -166,10 +169,10 @@ def register_backup_tools(mcp):
             "backup_restored": backup_name,
             "files_restored": restored_files,
             "errors": errors if errors else None,
-            "note": "Run FIRMWARE_RESTART to apply changes"
+            "note": "Run FIRMWARE_RESTART to apply changes",
         }, indent=2)
-    
-    @mcp.tool()
+
+    @mcp.tool(write=True)
     async def log_maintenance(
         component: str,
         action: str,
@@ -311,7 +314,7 @@ def register_backup_tools(mcp):
             "entries": entries
         }, indent=2)
     
-    @mcp.tool()
+    @mcp.tool(write=True)
     async def export_printer_data() -> str:
         """
         Export comprehensive printer data for analysis or backup.
@@ -352,10 +355,6 @@ def register_backup_tools(mcp):
                 "current_status",
                 "print_totals",
                 "recent_history (100 jobs)",
-                "maintenance_log"
-            ]
+                "maintenance_log",
+            ],
         }, indent=2)
-
-
-# Import aiohttp for file upload
-import aiohttp
